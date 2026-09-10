@@ -100,7 +100,7 @@ function clean(s, max) {
   return String(s == null ? '' : s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim().slice(0, max);
 }
 
-function createCommunityServer(engine) {
+function createCommunityServer(engine, base) {
   const dbFile = process.env.LITURGIA_DB || path.join(__dirname, 'data', 'liturgia.db');
   const d = db(dbFile);
   const presence = new Map();          // deviceId -> {hourId, lat, lng, tz, ts}
@@ -162,7 +162,8 @@ function createCommunityServer(engine) {
   /* --------------------------- Router --------------------------- */
   function handle(req, res) {
     const url = new URL((req.originalUrl || req.url), 'http://localhost');
-    const api = url.pathname;   // /api/...
+    let api = url.pathname;   // /api/...
+    if (base) api = api.startsWith(base) ? api.slice(base.length) : api;
     const ip = req.socket.remoteAddress || '?';
     const bodyPromise = req.method === 'POST' || req.method === 'PUT'
       ? new Promise((resolve) => {
@@ -384,8 +385,8 @@ function createCommunityServer(engine) {
 
   return {
     handle,
-    ws: (server) => {
-      const wss = new WebSocketServer({ server, path: '/ws' });
+    ws: (server, base) => {
+      const wss = new WebSocketServer({ server, path: (base || '') + '/ws' });
       wss.on('connection', (socket) => {
         const send = (id, payload) => { if (socket.readyState === 1) socket.send(JSON.stringify({ id, payload })); };
         send('presence', presenceSnapshot());

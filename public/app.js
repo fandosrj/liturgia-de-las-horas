@@ -1647,7 +1647,7 @@
       necesita un servidor y no está disponible en esta versión web estática.
     </div>`;
     html += `<div class="btn-row">
-      <a class="btn primary" href="https://ramonfandos.es" target="_blank" rel="noopener">Abrir la versión completa &#8599;</a>
+      <a class="btn primary" href="https://ramonfandos.es/liturgiahoras" target="_blank" rel="noopener">Abrir la versión completa &#8599;</a>
       <a class="btn" href="#hoy">Volver a Hoy</a>
     </div>`;
     html += `<div class="card"><p class="comm-sub">Sigue rezándolo todo: horas, salterio en kathismas,

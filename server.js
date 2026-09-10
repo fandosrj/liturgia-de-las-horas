@@ -14,6 +14,9 @@ const { createCommunityServer } = require('./community');
 const app = express();
 const PORT = process.env.PORT || 4000;
 const PUBLIC = path.join(__dirname, 'public');
+// Permite servir la app completa bajo una subruta, p. ej. ramonfandos.es/liturgiahoras
+// (BASE_PATH=/liturgiahoras). En la raíz ('' ) funciona igual que siempre.
+const BASE = (process.env.BASE_PATH || '').replace(/\/+$/, '');
 
 const pushTargets = new Set();
 const engine = {
@@ -24,9 +27,9 @@ const engine = {
   offPush(send) { pushTargets.delete(send); }
 };
 
-const community = createCommunityServer(engine);
+const community = createCommunityServer(engine, BASE);
 
-app.use(express.static(PUBLIC, {
+app.use(BASE + '/', express.static(PUBLIC, {
   setHeaders(res, filePath) {
     if (filePath.endsWith('breviarium.umd.js')) {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
@@ -34,7 +37,7 @@ app.use(express.static(PUBLIC, {
   }
 }));
 
-app.use('/api', (req, res) => {
+app.use(BASE + '/api', (req, res) => {
   community.handle(req, res).catch((e) => {
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -46,14 +49,16 @@ app.use('/api', (req, res) => {
   });
 });
 
+if (BASE) app.get('/', (req, res) => res.redirect(BASE + '/'));
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(PUBLIC, 'index.html'));
 });
 
 const server = http.createServer(app);
-const wss = community.ws(server);
+const wss = community.ws(server, BASE);
 
 server.listen(PORT, () => {
-  console.log('Liturgia de las Horas corriendo en http://localhost:' + PORT);
-  console.log('Comunidad activa · presence / intenciones / coros en /api y /ws');
+  console.log('Liturgia de las Horas corriendo en http://localhost:' + PORT + (BASE ? BASE : ''));
+  console.log('Comunidad activa · presence / intenciones / coros en ' + (BASE || '') + '/api y ' + (BASE || '') + '/ws');
 });

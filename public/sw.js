@@ -3,7 +3,7 @@
    Precarga la app y la librería de rezo (una sola vez).
    ============================================================ */
 
-const CACHE = 'liturgia-horas-v6';
+const CACHE = 'liturgia-horas-v7';
 const CORE = [
   './',
   './index.html',
@@ -50,8 +50,9 @@ self.addEventListener('fetch', (event) => {
   // Solo mismo origen y nunca la API (siempre en vivo)
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
-  if (url.pathname.startsWith('/api/')) return;
-  if (url.pathname === '/ws') return;
+  const base = new URL('./', self.registration.scope).pathname.replace(/\/$/, '');
+  if (url.pathname.startsWith(base + '/api/')) return;
+  if (url.pathname === base + '/ws') return;
 
   event.respondWith(
     caches.match(req).then((cached) => {

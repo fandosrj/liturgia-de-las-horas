@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: liturgia-horas
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: BASE_PATH
+        sync: false
+      - key: LITURGIA_DB
+        sync: false

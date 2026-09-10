@@ -7,6 +7,9 @@
 (() => {
   'use strict';
 
+  // Subruta de despliegue ('' en la raíz; p. ej. '/liturgiahoras' tras reverse proxy).
+  const BASE = (window.LH_BASE || '').replace(/\/+$/, '');
+
   const Li = window.Community = {};
 
   /* --------------------------- Identidad --------------------------- */
@@ -70,11 +73,11 @@
       if (loc) { body.lat = loc.lat; body.lng = loc.lng; }
       current = hourId;
       Li.currentHour = hourId;
-      Li.status = await api('/api/presence/join', { body });
+      Li.status = await api(BASE + '/api/presence/join', { body });
       clearInterval(heartbeat);
       heartbeat = setInterval(() => {
         if (!current) return;
-        api('/api/presence/join', { body: { deviceId: DEVICE, hourId: current, tz: TZ(), tzName, lat: body.lat, lng: body.lng } })
+        api(BASE + '/api/presence/join', { body: { deviceId: DEVICE, hourId: current, tz: TZ(), tzName, lat: body.lat, lng: body.lng } })
           .then((s) => { Li.status = s; })
           .catch(() => {});
       }, 25 * 1000);
@@ -85,33 +88,33 @@
     current = null;
     Li.currentHour = null;
     clearInterval(heartbeat);
-    try { Li.status = await api('/api/presence/leave', { body: { deviceId: DEVICE } }); }
+    try { Li.status = await api(BASE + '/api/presence/leave', { body: { deviceId: DEVICE } }); }
     catch (e) { Li.status = null; }
   }
 
   async function presence() {
-    try { return await api('/api/presence'); }
+    try { return await api(BASE + '/api/presence'); }
     catch (e) { return { total: 0, hours: {}, countries: [], withGps: [], ttl_ms: 90000 }; }
   }
 
   /* ---------------------------- Intenciones ---------------------------- */
   const intentions = {
-    open: () => api('/api/intentions?deviceId=' + encodeURIComponent(DEVICE)),
-    add: (text) => api('/api/intentions', { body: { deviceId: DEVICE, text } }),
-    pray: (id) => api('/api/intentions/' + id + '/pray', { body: { deviceId: DEVICE } }),
-    report: (id) => api('/api/intentions/' + id + '/report', { body: { deviceId: DEVICE } }),
-    news: () => api('/api/intentions/news?deviceId=' + encodeURIComponent(DEVICE)),
-    mine: () => api('/api/intentions/list/mine?deviceId=' + encodeURIComponent(DEVICE))
+    open: () => api(BASE + '/api/intentions?deviceId=' + encodeURIComponent(DEVICE)),
+    add: (text) => api(BASE + '/api/intentions', { body: { deviceId: DEVICE, text } }),
+    pray: (id) => api(BASE + '/api/intentions/' + id + '/pray', { body: { deviceId: DEVICE } }),
+    report: (id) => api(BASE + '/api/intentions/' + id + '/report', { body: { deviceId: DEVICE } }),
+    news: () => api(BASE + '/api/intentions/news?deviceId=' + encodeURIComponent(DEVICE)),
+    mine: () => api(BASE + '/api/intentions/list/mine?deviceId=' + encodeURIComponent(DEVICE))
   };
 
   /* ------------------------------- Coros ------------------------------- */
   const choirs = {
-    mine: () => api('/api/choirs/mine?deviceId=' + encodeURIComponent(DEVICE)),
-    create: (nick, name) => api('/api/choirs', { body: { deviceId: DEVICE, nick, name } }),
-    join: (nick, code) => api('/api/choirs/join', { body: { deviceId: DEVICE, nick, code } }),
-    leave: (code) => api('/api/choirs/' + code + '/leave', { body: { deviceId: DEVICE } }),
-    prayed: (code, date, hour) => api('/api/choirs/' + code + '/pray', { body: { deviceId: DEVICE, date, hour, tz: TZ() } }),
-    presence: (code, date) => api('/api/choirs/' + code + '/presence?deviceId=' + encodeURIComponent(DEVICE) + '&date=' + encodeURIComponent(date))
+    mine: () => api(BASE + '/api/choirs/mine?deviceId=' + encodeURIComponent(DEVICE)),
+    create: (nick, name) => api(BASE + '/api/choirs', { body: { deviceId: DEVICE, nick, name } }),
+    join: (nick, code) => api(BASE + '/api/choirs/join', { body: { deviceId: DEVICE, nick, code } }),
+    leave: (code) => api(BASE + '/api/choirs/' + code + '/leave', { body: { deviceId: DEVICE } }),
+    prayed: (code, date, hour) => api(BASE + '/api/choirs/' + code + '/pray', { body: { deviceId: DEVICE, date, hour, tz: TZ() } }),
+    presence: (code, date) => api(BASE + '/api/choirs/' + code + '/presence?deviceId=' + encodeURIComponent(DEVICE) + '&date=' + encodeURIComponent(date))
   };
 
   /* --------------------------- Socket en vivo --------------------------- */
@@ -130,7 +133,7 @@
   function ensureSocket() {
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
     try {
-      socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+      socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + BASE + '/ws');
     } catch (e) { return; }
     socket.onmessage = (ev) => {
       try {

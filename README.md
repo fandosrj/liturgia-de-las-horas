@@ -51,10 +51,33 @@ cliente, por lo que las horas funcionan sin conexión una vez instalada la PWA.
 
 ```
 public/          cliente (index.html, styles.css, app.js, lib/, vendor/)
-tools/           generadores (gen-salterio.mjs, gen-santos.mjs)
+tools/           generadores (gen-salterio.mjs, gen-santos.mjs, build-github.mjs)
 server.js        express + ws + SQLite (presencia, comunidad, intenciones)
-community.js     lógica de comunidad en el cliente
+community.js     lógica de comunidad en el servidor
 ```
+
+## Despliegue
+
+**Local**: `npm install && node server.js` → <http://localhost:4000>.
+
+**GitHub Pages (versión ligera sin servidor)**: `node tools/build-github.mjs`
+genera `dist-github/` — el build quita la comunidad y el mapa, e inyecta
+`window.LH_GH = 1`, así la app funciona 100% estática y `#comunidad` ofrece un
+enlace a la versión completa.
+
+**Versión completa (con comunidad)** — plataforma Node (Render/Fly) o un VPS:
+
+- El repo se despliega con `npm install && node server.js` (hay `render.yaml`,
+  `Procfile` y `Dockerfile` listos).
+- El servicio requiere Node ≥ 18, proceso persistente y HTTPS (lo aporta la
+  plataforma con tu dominio, o nginx + certbot en un VPS).
+- Sirve bajo una **subruta** si añades `BASE_PATH=/liturgiahoras`: solo tienes
+  que hacer que `ramonfandos.es` reenvíe esa ruta al servicio (reverse proxy);
+  es la opción usada por el botón "versión completa" de la web estática.
+- **Datos de comunidad**: SQLite en `data/liturgia.db` (variable
+  `LITURGIA_DB`). En Render/Fly la carpeta se reinicia en cada deploy; para
+  persistir intenciones/coros hay que usar un disco persistente (RenderDisk) o
+  un volumen (Fly).
 
 ## Privacidad
 
