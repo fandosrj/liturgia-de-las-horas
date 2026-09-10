@@ -605,6 +605,40 @@ body {
   font-family: var(--sans); font-size: 0.86rem; padding: 8px 18px;
 }
 .no-cookies button:hover { filter: brightness(1.06); }
+.no-cookies .nci-link {
+  background: none; border: none; cursor: pointer;
+  color: var(--accent-ink); font-weight: 600; font-size: 0.86rem;
+  padding: 0; font-family: var(--sans);
+}
+.no-cookies-info {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(15, 12, 22, 0.55);
+}
+.nci-card {
+  position: relative; max-width: 440px; width: 100%; max-height: 82vh; overflow: auto;
+  padding: 24px 26px; border-radius: var(--radius);
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); box-shadow: var(--shadow);
+  font-family: var(--sans); font-size: 0.92rem; line-height: 1.55;
+}
+.nci-card h3 { margin: 0 0 10px; font-family: var(--serif); font-size: 1.2rem; }
+.nci-card p { margin: 8px 0; }
+.nci-card .nci-close {
+  position: absolute; top: 8px; right: 8px;
+  background: none; border: none; cursor: pointer;
+  font-size: 1.6rem; line-height: 1; color: var(--ink-soft); padding: 6px 10px;
+}
+.nci-card .nci-close:hover { color: var(--ink); }
+.nci-card .nci-more { font-size: 0.84rem; }
+.nci-card .nci-more a { color: var(--accent-ink); font-weight: 600; }
+.nci-ok {
+  margin-top: 14px; width: 100%; padding: 10px; cursor: pointer;
+  border: none; border-radius: 999px;
+  background: var(--accent); color: #fff; font-weight: 700;
+  font-family: var(--sans); font-size: 0.9rem;
+}
+.nci-ok:hover { filter: brightness(1.06); }
 
 /* Auto-scroll de lectura */
 .autoscroll {

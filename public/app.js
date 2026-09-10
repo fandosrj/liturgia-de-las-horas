@@ -1988,12 +1988,39 @@
     b.setAttribute('role', 'dialog');
     b.setAttribute('aria-label', 'Aviso de privacidad');
     b.innerHTML = `<p><b>Sin cookies.</b> No te rastreamos ni identificamos: solo contamos las visitas de forma anónima y agregada. Tus rezos, progreso y favoritos quedan guardados solo en tu dispositivo. La página la crea y mantiene <b>Ramón Fandos</b> y se aloja en <b>GitHub Pages</b> (servicio de <b>Microsoft</b>).</p>
-      <a href="#acerca">Más información</a>
+      <button type="button" class="nci-link">Más información</button>
       <button type="button">Entendido</button>`;
     const off = () => b.remove();
-    b.querySelector('button').addEventListener('click', () => {
+    b.querySelector('button:last-of-type').addEventListener('click', () => {
       try { localStorage.setItem('lh.nocookies', '1'); } catch (e) {}
       off();
+    });
+    b.querySelector('.nci-link').addEventListener('click', () => {
+      if (document.getElementById('noCookiesInfo')) return;
+      const m = document.createElement('div');
+      m.id = 'noCookiesInfo';
+      m.className = 'no-cookies-info';
+      m.setAttribute('role', 'dialog');
+      m.setAttribute('aria-modal', 'true');
+      m.setAttribute('aria-label', 'Aviso de privacidad');
+      m.innerHTML = `<div class="nci-card">
+          <button type="button" class="icon-btn nci-close" aria-label="Cerrar">&times;</button>
+          <h3>Privacidad</h3>
+          <p><b>Sin cookies.</b> No te rastreamos ni identificamos: solo contamos visitas de forma anónima y agregada (GoatCounter).</p>
+          <p>Tus rezos, progreso y favoritos quedan guardados solo en tu dispositivo, funcionan sin conexión y <b>no se envían a ningún servidor</b>.</p>
+          <p>La página la crea y mantiene <b>Ramón Fandos</b> (fandosrj@gmail.com) y se aloja en <b>GitHub Pages</b>, servicio de <b>Microsoft</b>.</p>
+          <p class="nci-more"><a href="#acerca">Aviso legal completo, créditos y estadísticas en "Acerca de y avisos"</a></p>
+          <button type="button" class="nci-ok">Cerrar</button>
+        </div>`;
+      document.body.appendChild(m);
+      const close = () => m.remove();
+      m.querySelector('.nci-close').addEventListener('click', close);
+      m.querySelector('.nci-ok').addEventListener('click', close);
+      m.addEventListener('click', (e) => { if (e.target === m) close(); });
+      const kb = (e) => {
+        if (e.key === 'Escape') { close(); document.removeEventListener('keydown', kb); }
+      };
+      document.addEventListener('keydown', kb);
     });
     document.body.appendChild(b);
   }
