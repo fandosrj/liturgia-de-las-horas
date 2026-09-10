@@ -3,7 +3,7 @@
    Precarga la app y la librería de rezo (una sola vez).
    ============================================================ */
 
-const CACHE = 'liturgia-horas-v11';
+const CACHE = 'liturgia-horas-v12';
 const CORE = [
   './',
   './index.html',
@@ -55,20 +55,33 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname === base + '/ws') return;
 
   event.respondWith(
-    caches.match(req).then((cached) => {
-      if (cached) return cached;
+    (function networkFirst() {
+      const isLive = req.mode === 'navigate' ||
+        url.pathname.endsWith('/app.js') ||
+        url.pathname.endsWith('/styles.css') ||
+        url.pathname.endsWith('/index.html');
+      if (!isLive) {
+        return caches.match(req).then((cached) => {
+          if (cached) return cached;
+          return fetch(req).then((res) => {
+            if (res && res.status === 200) {
+              const clone = res.clone();
+              caches.open(CACHE).then((cache) => cache.put(req, clone));
+            }
+            return res;
+          });
+        });
+      }
       return fetch(req).then((res) => {
-        // Guarda en caché los activos estáticos (no respuestas de error)
         if (res && res.status === 200) {
           const clone = res.clone();
           caches.open(CACHE).then((cache) => cache.put(req, clone));
         }
         return res;
       }).catch(() => {
-        // Fallback para navegación sin conexión
         if (req.mode === 'navigate') return caches.match('./index.html');
-        return new Response('Sin conexión', { status: 503, statusText: 'Offline' });
+        return caches.match(req);
       });
-    })
+    })()
   );
 });
