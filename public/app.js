@@ -1460,7 +1460,7 @@
   /* ------------------------------ Ajustes ------------------------------ */
   function settingsView() {
     const s = Store.get();
-    const fs = { S: 'Pequeña', M: 'Normal', L: 'Grande' };
+    const fs = { S: 'Peque\u00f1a', M: 'Normal', L: 'Grande', XL: 'Muy grande' };
     view.innerHTML = `
       <div class="section-title">Ajustes</div>
 
