@@ -1,7 +1,50 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#1a1a2e"/>
-  <circle cx="256" cy="256" r="150" fill="none" stroke="#b8860b" stroke-width="22"/>
-  <rect x="228" y="150" width="56" height="212" rx="14" fill="#b8860b"/>
-  <rect x="150" y="228" width="212" height="56" rx="14" fill="#b8860b"/>
-  <rect x="200" y="352" width="112" height="14" rx="7" fill="#b8860b"/>
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="70%" stop-color="#0a1826"/>
+      <stop offset="100%" stop-color="#06101a"/>
+    </radialGradient>
+  </defs>
+  <rect width="200" height="200" rx="40" fill="url(#bg)"/>
+  
+  <!-- Destellos y Estrellas de Fondo -->
+  <path d="M 100,20 L 100,35 M 100,20 L 100,5" stroke="#e5c158" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 1" fill="none"/>
+  <circle cx="100" cy="28" r="1.5" fill="#e5c158"/>
+  
+  <!-- Rayos de luz radiales -->
+  <line x1="130" y1="50" x2="145" y2="40" stroke="#e5c158" stroke-width="2" stroke-linecap="round"/>
+  <line x1="140" y1="75" x2="160" y2="70" stroke="#e5c158" stroke-width="2" stroke-linecap="round"/>
+  <line x1="70" y1="50" x2="55" y2="40" stroke="#e5c158" stroke-width="2" stroke-linecap="round"/>
+  <line x1="60" y1="75" x2="40" y2="70" stroke="#e5c158" stroke-width="2" stroke-linecap="round"/>
+  <line x1="100" y1="15" x2="100" y2="35" stroke="#e5c158" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Estrellas (cuatro puntas) -->
+  <path fill="#e5c158" d="M 148,58 Q 148,62 152,62 Q 148,62 148,66 Q 148,62 144,62 Q 148,62 148,58 Z"/>
+  <path fill="#e5c158" d="M 50,105 Q 50,108 53,108 Q 50,108 50,111 Q 50,108 47,108 Q 50,108 50,105 Z"/>
+  <path fill="#e5c158" d="M 152,112 Q 152,115 155,115 Q 152,115 152,118 Q 152,115 149,115 Q 152,115 152,112 Z"/>
+  
+  <!-- Puntos dorados -->
+  <circle cx="60" cy="40" r="1.5" fill="#e5c158"/>
+  <circle cx="120" cy="30" r="1" fill="#e5c158"/>
+  <circle cx="155" cy="85" r="1.2" fill="#e5c158"/>
+  <circle cx="42" cy="120" r="1" fill="#e5c158"/>
+
+  <!-- Paloma de la Paz / Espíritu Santo -->
+  <path stroke="#e5c158" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 88,112 C 70,110 60,95 62,75 C 65,50 82,42 98,62 C 105,48 118,35 128,52 C 120,60 115,70 118,80 C 122,90 112,102 95,108"/>
+  <path stroke="#e5c158" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 118,80 C 123,76 128,78 128,84 C 124,88 120,86 117,85"/>
+  <path stroke="#e5c158" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 80,68 C 88,58 100,55 106,68"/>
+  <path stroke="#e5c158" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 75,80 C 85,70 95,68 102,80"/>
+
+  <!-- Breviario / Libro Abierto -->
+  <g transform="translate(0, 10)">
+    <!-- Lomo dorado -->
+    <path stroke="#e5c158" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 35,140 Q 65,155 100,145 Q 135,155 165,140 L 165,145 Q 135,160 100,150 Q 65,160 35,145 Z"/>
+    <!-- Páginas blancas -->
+    <path stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 38,135 Q 68,148 98,138 L 98,112 Q 68,122 38,110 Z"/>
+    <path stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 162,135 Q 132,148 102,138 L 102,112 Q 132,122 162,110 Z"/>
+    <!-- Páginas interiores doradas -->
+    <path stroke="#e5c158" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 42,128 Q 68,138 96,130"/>
+    <path stroke="#e5c158" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 158,128 Q 132,138 104,130"/>
+  </g>
 </svg>
