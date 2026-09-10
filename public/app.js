@@ -1554,7 +1554,7 @@
         <h3>Aviso legal y política de privacidad</h3>
         <p><b>Titular:</b> Ramón Fandos.<br>
         <b>Contacto:</b> fandosrj@gmail.com</p>
-        <p>Esta versión web <b>no crea cuentas</b>, <b>no utiliza cookies de terceros</b> y <b>no envía datos personales a ningún servidor</b>: el rezo, el progreso, los favoritos y los textos que importes se guardan únicamente en tu dispositivo. La página se aloja en GitHub Pages; GitHub, como cualquier proveedor de hosting, puede registrar los datos de acceso habituales (IP, fecha, navegador) para su operativa y seguridad, sin relación con el contenido que rezas.</p>
+        <p>Esta versión web <b>no crea cuentas</b>, <b>no utiliza cookies en absoluto</b> (ni propias, ni de terceros, ni trazadores) y <b>no envía datos personales a ningún servidor</b>: el rezo, el progreso, los favoritos y los textos que importes se guardan únicamente en tu dispositivo. La página se aloja en GitHub Pages; GitHub, como cualquier proveedor de hosting, puede registrar los datos de acceso habituales (IP, fecha, navegador) para su operativa y seguridad, sin relación con el contenido que rezas.</p>
 
         <h3>Créditos</h3>
         <p>Motor de rezo: <code>breviarium · MIT · breviarium.es</code></p>
