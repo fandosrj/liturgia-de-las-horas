@@ -116,10 +116,10 @@
       html += geoPrompt();
       html += dateNav();
       html += saintsHtml(currentDate);
-      html += `<div class="section-title">Rezo del día</div>`;
-      html += rezoDelDiaGrid(currentDate);
       html += `<div class="section-title">${prayedCount ? `${prayedCount} de ${Liturgy.HOURS.length} horas rezadas hoy` : 'Las siete horas de hoy'}</div>`;
       html += homeHourCards(recommended);
+      html += `<div class="section-title">Rezo del día</div>`;
+      html += rezoDelDiaGrid(currentDate);
       html += `<div class="btn-row">
         <a class="btn" href="#lecturas">Lecturas del día</a>
         <a class="btn" href="#biblia">Biblia</a>
@@ -1550,6 +1550,11 @@
         <h3>Privacidad y offline</h3>
         <p>El rezo, tus ajustes, progreso y textos importados funcionan sin conexión y se guardan solo en tu navegador.</p>
         <p>Las funciones de <b>comunidad</b> (presencia en vivo, intenciones, coros) requieren conexión con el servidor y están diseñadas para ser lo más anónimas posible: la presencia solo muestra una posición aproximada y expira sola; las intenciones no llevan tu nombre ni identificación; los coros usan solo apodos que eliges tú y su información se limita a quién ha rezado cada hora — nunca puntuaciones ni rachas. No se almacena tu IP asociada a estos datos.</p>
+
+        <h3>Aviso legal y política de privacidad</h3>
+        <p><b>Titular:</b> Ramón Fandos.<br>
+        <b>Contacto:</b> fandosrj@gmail.com</p>
+        <p>Esta versión web <b>no crea cuentas</b>, <b>no utiliza cookies de terceros</b> y <b>no envía datos personales a ningún servidor</b>: el rezo, el progreso, los favoritos y los textos que importes se guardan únicamente en tu dispositivo. La página se aloja en GitHub Pages; GitHub, como cualquier proveedor de hosting, puede registrar los datos de acceso habituales (IP, fecha, navegador) para su operativa y seguridad, sin relación con el contenido que rezas.</p>
 
         <h3>Créditos</h3>
         <p>Motor de rezo: <code>breviarium · MIT · breviarium.es</code></p>
