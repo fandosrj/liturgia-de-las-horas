@@ -16,6 +16,9 @@ data/
 Thumbs.db
 .DS_Store
 
+# Build GitHub Pages
+dist-github/
+
 # Editor / SO
 .vscode/
 .idea/

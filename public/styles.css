@@ -206,6 +206,13 @@ body {
 .hour-card:hover { border-color: var(--accent); transform: translateY(-1px); }
 .hour-card.recommended { border-left: 4px solid var(--accent); }
 .hour-card.recommended .hour-card-head::after { content: "Ahora"; color: var(--accent); font-size: 0.78rem; font-family: var(--sans); font-weight: 600; }
+.hour-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  gap: 10px; margin: 2px 0 8px;
+}
+.hour-card.done { opacity: 0.85; }
+.hour-card.done .hour-name { color: var(--accent-ink); }
+.hour-card .hour-ant { color: var(--ink-soft); font-size: 0.8rem; }
 .hour-card-head { display: flex; align-items: baseline; gap: 8px; }
 .hour-name { font-weight: 700; font-size: 1.12rem; }
 .hour-time { font-size: 0.78rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 1.4px; font-family: var(--sans); }

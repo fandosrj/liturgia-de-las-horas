@@ -22,6 +22,9 @@
 
   function iso(d) { return d.toISOString().slice(0, 10); }
 
+  // Versión web estática (GitHub Pages): sin servidor -> sin comunidad/presencia.
+  const GH = window.LH_GH === 1 || /^([a-z0-9-]+\.)?[a-z0-9-]+\.github\.io$/i.test(location.hostname || '');
+
   /* -------------------------- Temas / ajustes -------------------------- */
   function applySettings() {
     const s = Store.get();
@@ -78,6 +81,7 @@
     if (h === 'misal' || h === 'lecturas') return misalView();
     if (h === 'ortodoxa') return ortodoxaView();
     if (h === 'biblia') return bibliaView();
+    if (GH && h === 'comunidad') return communityStaticView();
     if (h === 'comunidad') return communityView();
     if (h === 'lecturas') return lecturasView();
     if (h === 'ajustes') return settingsView();
@@ -114,14 +118,8 @@
       html += saintsHtml(currentDate);
       html += `<div class="section-title">Rezo del día</div>`;
       html += rezoDelDiaGrid(currentDate);
-      html += `<div class="section-title">${prayedCount ? `${prayedCount} de ${Liturgy.HOURS.length} horas rezadas hoy` : 'Todavía no has rezado hoy'}</div>`;
-      html += '<div class="hour-chips">';
-      for (const h of Liturgy.HOURS) {
-        const d = Store.isPrayed(currentDate, h.id);
-        const isRec = h.id === recommended ? ' recommended' : '';
-        html += `<a class="hour-chip${isRec}${d ? ' done' : ''}" href="#hora/${h.id}">${d ? '&#10003; ' : ''}${h.name}</a>`;
-      }
-      html += '</div>';
+      html += `<div class="section-title">${prayedCount ? `${prayedCount} de ${Liturgy.HOURS.length} horas rezadas hoy` : 'Las siete horas de hoy'}</div>`;
+      html += homeHourCards(recommended);
       html += `<div class="btn-row">
         <a class="btn" href="#lecturas">Lecturas del día</a>
         <a class="btn" href="#biblia">Biblia</a>
@@ -139,7 +137,25 @@
   }
 
   /* --------- Presencia en portada: “Ahora rezamos juntos” --------- */
+  function homeHourCards(recId) {
+    let h = '<div class="hour-cards">';
+    for (const hx of Liturgy.HOURS) {
+      const d = Store.isPrayed(currentDate, hx.id);
+      const rec = hx.id === recId;
+      h += `<a class="hour-card${rec ? ' recommended' : ''}${d ? ' done' : ''}" href="#hora/${hx.id}">
+        <div class="hour-card-head">
+          <span class="hour-name">${Liturgy.esc(hx.name)}</span>
+          <span class="hour-time">${Liturgy.esc(hx.time)}</span>
+          <span class="hour-check${d ? ' done' : ''}" title="${d ? 'Rezada' : ''}">${d ? '&#10003;' : ''}</span>
+        </div>
+        <div class="hour-card-body">${rec ? '<span class="hour-ant">Hora de ahora</span>' : '<span class="hour-ant">Elegir</span>'}</div>
+      </a>`;
+    }
+    return h + '</div>';
+  }
+
   function presenceLive() {
+    if (GH) return '';
     return `<section class="now-praying" id="now-praying">
       <div class="np-count"><span id="np-total">0</span><span id="np-label">personas rezando ahora</span></div>
       <div class="np-countries" id="np-countries"></div>
@@ -166,6 +182,7 @@
   let homePresenceUnsub = null;
   let nowInterval = null;
   function attachHomePresence() {
+    if (GH) return;
     detachHomePresence();
     Community.ensureSocket();
     homePresenceUnsub = Community.on('presence', (snap) => setNowPraying(snap));
@@ -208,6 +225,7 @@
   /* ------------- “Reza con alguien” dentro de la hora ---------------- */
   let hourOthersUnsub = null;
   function nowOthers() {
+    if (GH) return '';
     return `<div class="now-others" id="now-others"></div>`;
   }
   function renderNowOthers() {
@@ -221,6 +239,7 @@
     el.innerHTML = `🤝 <b>${n}</b> ${n === 1 ? 'persona está' : 'personas están'} rezando <b>${Liturgy.esc(hx ? hx.name : 'esta hora')}</b> ahora mismo. <a href="#comunidad">Ver a quién</a>`;
   }
   function attachNowOthers() {
+    if (GH) return;
     detachNowOthers();
     Community.ensureSocket();
     hourOthersUnsub = Community.on('presence', renderNowOthers);
@@ -232,6 +251,7 @@
   }
 
   function geoPrompt() {
+    if (GH) return '';
     if (localStorage.getItem('liturgia.loc.v1') !== null) return '';
     return `<div class="note-box geo-note">
       <b>Rezamos juntos ahora.</b> Al rezar una hora te unes de forma anónima al “coro invisible”: cuántas personas rezan la misma hora en este momento y, si lo permites, tu posición (sin nombre) aparece en el mapa. Sin rankings ni perfiles.
@@ -243,6 +263,7 @@
   }
 
   function attachGeoPrompt() {
+    if (GH) return;
     document.querySelectorAll('[data-geo]').forEach((b) => {
       b.addEventListener('click', () => {
         localStorage.setItem('liturgia.loc.v1', b.dataset.geo);
@@ -254,6 +275,7 @@
 
   /* -------------- Resultado de intenciones del día anterior -------------- */
   function checkIntentionNews() {
+    if (GH) return;
     const last = localStorage.getItem('liturgia.news.v1');
     const today = new Date().toISOString().slice(0, 10);
     if (last === today) return;
@@ -668,7 +690,7 @@
       if (!opts.length) { view.innerHTML = '<div class="note-box">No hay datos para esta hora en esta fecha.</div>'; showLoading(false); return; }
 
       buildHourHtml(hourId, hx, opts, 0);
-      Community.joinHour(hourId);
+      if (!GH) Community.joinHour(hourId);
     } catch (e) {
       view.innerHTML = errBox(e);
     }
@@ -707,14 +729,14 @@
     </div>`;
 
     html += `<div id="intentions-slot"></div>`;
-    html += nowOthers();
+    if (!GH) html += nowOthers();
 
     view.innerHTML = html;
 
     asAppend();
     attachFavStars();
-    loadIntentions(intoSlot('#intentions-slot'));
-    attachNowOthers();
+    if (!GH) loadIntentions(intoSlot('#intentions-slot'));
+    if (!GH) attachNowOthers();
 
     const btnDone = $('#btn-done');
     if (btnDone) {
@@ -723,7 +745,7 @@
         btnDone.classList.toggle('marked', newState);
         btnDone.classList.toggle('primary', !newState);
         btnDone.innerHTML = newState ? '&#10003; Hora rezada' : 'Marcar como rezada';
-        if (newState) {
+        if (newState && !GH) {
           const snap = Community.status || {};
           const n = (snap.hours && snap.hours[hourId]) || 0;
           if (n >= 2) toast(`&#127881; Hoy <b>${n}</b> personas hemos rezado <b>${hx.name}</b> juntos.`);
@@ -737,6 +759,25 @@
   }
 
   /* ------------------------ Misal y Lecturas del día ------------------------ */
+  function lectionSetFor(lect, info) {
+    if (!lect || !lect.length) return [];
+    if (lect.length === 1) return lect;
+    const cyc = { A: 'YEAR_A', B: 'YEAR_B', C: 'YEAR_C' };
+    if (info && info.cycle && cyc[info.cycle]) {
+      const byYear = lect.find((s) => s.cycle === cyc[info.cycle]);
+      if (byYear) return [byYear];
+    }
+    if (info && info.calendar && info.calendar.endOfLiturgycalSeason) {
+      const even = Number(info.calendar.endOfLiturgycalSeason.split('-')[0]) % 2 === 0;
+      const want = even ? 'EVEN' : 'ODD';
+      const byPar = lect.find((s) => s.cycle === want);
+      if (byPar) return [byPar];
+    }
+    const anyOrMem = lect.find((s) => String(s.cycle).toUpperCase() === 'ANY') ||
+      lect.find((s) => String(s.cycle).toUpperCase() === 'MEMORY');
+    return anyOrMem ? [anyOrMem] : [lect[0]];
+  }
+
   async function misalView() {
     showLoading(true);
     try {
@@ -755,10 +796,11 @@
         <div class="date-line">${fmtDate(currentDate)}</div>
       </section>`;
       html += `<div class="btn-row"><a class="btn" href="#hoy">&#8592; Hoy</a></div>`;
-      if (!lect || !lect.length) {
+      const sets = lectionSetFor(lect, info);
+      if (!sets.length) {
         html += '<div class="note-box">No hay lecturas para esta fecha.</div>';
       } else {
-        for (const set of lect) {
+        for (const set of sets) {
           if (!set || !set.lecturas) continue;
           for (const r of set.lecturas) {
             const label = typeName[r.type] || r.type;
@@ -1598,6 +1640,21 @@
   }
 
   /* ------------------------ Vista Comunidad ------------------------ */
+  function communityStaticView() {
+    let html = topBar('Comunidad de rezo', fmtDate(currentDate));
+    html += `<div class="note-box">
+      La <b>comunidad en vivo</b> (presencia "rezamos juntos", intenciones y coros)
+      necesita un servidor y no está disponible en esta versión web estática.
+    </div>`;
+    html += `<div class="btn-row">
+      <a class="btn primary" href="https://ramonfandos.es" target="_blank" rel="noopener">Abrir la versión completa &#8599;</a>
+      <a class="btn" href="#hoy">Volver a Hoy</a>
+    </div>`;
+    html += `<div class="card"><p class="comm-sub">Sigue rezándolo todo: horas, salterio en kathismas,
+      Rezo en latín, rito ortodoxo, santoral, Rosario, Coronilla, Ángelus y oraciones funcionan igual.</p></div>`;
+    view.innerHTML = html;
+  }
+
   async function communityView() {
     showLoading(true);
     let html = `<div class="section-title">Comunidad de rezo</div>
@@ -1887,7 +1944,7 @@
       asStop();
       detachHomePresence();
       detachNowOthers();
-      Community.leaveHour();
+      if (!GH && typeof Community !== 'undefined') Community.leaveHour();
       if (window.LatinaRezado && LatinaRezado.detener) LatinaRezado.detener();
       setTab();
       route();
@@ -1933,8 +1990,10 @@
       return;
     }
     await applyDayAccent();
-    Community.ensureSocket();
-    Community.on('chorevt', onChorevt);
+    if (!GH && typeof Community !== 'undefined') {
+      Community.ensureSocket();
+      Community.on('chorevt', onChorevt);
+    }
     document.addEventListener('visibilitychange', () => { if (document.hidden) asStop(); });
     route();
   }

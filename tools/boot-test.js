@@ -137,6 +137,7 @@ function run(file) { vm.runInContext(fs.readFileSync(file, 'utf8'), sandbox, { f
   await new Promise((r) => setTimeout(r, 2500));
   const v3b = doc.querySelector('#view').innerHTML;
   console.log('misalView:', v3b.length, 'chars | "La Misa, paso a paso":', v3b.includes('La Misa, paso a paso'));
+  console.log('misalView sin lecturas repetidas:', (v3b.match(/Primera lectura/g) || []).length === 1, '| Evangelio único:', (v3b.match(/rubric">Evangelio</g) || []).length === 1);
 
   sandbox.location.hash = '#ortodoxa';
   run('public/app.js');
@@ -269,6 +270,21 @@ function run(file) { vm.runInContext(fs.readFileSync(file, 'utf8'), sandbox, { f
   await new Promise((r) => setTimeout(r, 1800));
   const v6 = doc.querySelector('#view').innerHTML;
   console.log('comunidadView:', v6.length, 'chars | Juntos ahora:', v6.includes('Juntos ahora') && v6.includes('Comunidad de rezo') ? 'OK' : 'FALLO');
+
+  // --- Modo GitHub Pages (window.LH_GH=1): sin comunidad, sin lecturas duplicadas ---
+  sandbox.LH_GH = 1;
+  sandbox.location.hash = '#comunidad';
+  run('public/app.js');
+  await new Promise((r) => setTimeout(r, 1200));
+  const vGH = doc.querySelector('#view').innerHTML;
+  const ghOk = vGH.includes('comunidad') || vGH.includes('versión completa');
+  console.log('GH #comunidad es tarjeta estática (sin Juntos ahora):', ghOk && !vGH.includes('Juntos ahora'), '| sin presenceLive:', !vGH.includes('personas rezando ahora'));
+
+  sandbox.location.hash = '#hoy';
+  run('public/app.js');
+  await new Promise((r) => setTimeout(r, 1200));
+  const vGHh = doc.querySelector('#view').innerHTML;
+  console.log('GH #hoy sin presencia ni geo:', !vGHh.includes('personas rezando ahora') && !vGHh.includes('data-geo') && !vGHh.includes('intentions-slot'), '| con hour-cards:', vGHh.includes('hour-cards'));
 
   console.log('--- PRUEBA COMPLETA SIN ERRORES DE ARRANQUE ---');
   process.exit(0);
