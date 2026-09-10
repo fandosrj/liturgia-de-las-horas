@@ -1980,49 +1980,104 @@
   /* ------------------------------ Init ------------------------------- */
   function showNoCookiesBanner() {
     try {
-      if (localStorage.getItem('lh.nocookies')) return;
-    } catch (e) { return; }
-    const b = document.createElement('div');
-    if (!document.body) return;
-    b.className = 'no-cookies';
-    b.setAttribute('role', 'dialog');
-    b.setAttribute('aria-label', 'Aviso de privacidad');
-    b.innerHTML = `<p><b>Sin cookies.</b> No te rastreamos ni identificamos: solo contamos las visitas de forma anónima y agregada. Tus rezos, progreso y favoritos quedan guardados solo en tu dispositivo. La página la crea y mantiene <b>Ramón Fandos</b> y se aloja en <b>GitHub Pages</b> (servicio de <b>Microsoft</b>).</p>
-      <button type="button" class="nci-link">Más información</button>
-      <button type="button">Entendido</button>`;
-    const off = () => b.remove();
-    b.querySelector('button:last-of-type').addEventListener('click', () => {
-      try { localStorage.setItem('lh.nocookies', '1'); } catch (e) {}
-      off();
-    });
-    b.querySelector('.nci-link').addEventListener('click', () => {
-      if (document.getElementById('noCookiesInfo')) return;
-      const m = document.createElement('div');
-      m.id = 'noCookiesInfo';
-      m.className = 'no-cookies-info';
-      m.setAttribute('role', 'dialog');
-      m.setAttribute('aria-modal', 'true');
-      m.setAttribute('aria-label', 'Aviso de privacidad');
-      m.innerHTML = `<div class="nci-card">
-          <button type="button" class="icon-btn nci-close" aria-label="Cerrar">&times;</button>
-          <h3>Privacidad</h3>
-          <p><b>Sin cookies.</b> No te rastreamos ni identificamos: solo contamos visitas de forma anónima y agregada (GoatCounter).</p>
-          <p>Tus rezos, progreso y favoritos quedan guardados solo en tu dispositivo, funcionan sin conexión y <b>no se envían a ningún servidor</b>.</p>
-          <p>La página la crea y mantiene <b>Ramón Fandos</b> (fandosrj@gmail.com) y se aloja en <b>GitHub Pages</b>, servicio de <b>Microsoft</b>.</p>
-          <p class="nci-more"><a href="#acerca">Aviso legal completo, créditos y estadísticas en "Acerca de y avisos"</a></p>
-          <button type="button" class="nci-ok">Cerrar</button>
-        </div>`;
-      document.body.appendChild(m);
-      const close = () => m.remove();
-      m.querySelector('.nci-close').addEventListener('click', close);
-      m.querySelector('.nci-ok').addEventListener('click', close);
-      m.addEventListener('click', (e) => { if (e.target === m) close(); });
-      const kb = (e) => {
-        if (e.key === 'Escape') { close(); document.removeEventListener('keydown', kb); }
+      if (!document.body) return;
+      try { if (localStorage.getItem('lh.nocookies')) return; } catch (e) { return; }
+
+      const b = document.createElement('div');
+      b.className = 'no-cookies';
+      b.setAttribute('role', 'dialog');
+      b.setAttribute('aria-label', 'Aviso de privacidad');
+
+      const p = document.createElement('p');
+      const strong = (t) => { const s = document.createElement('b'); s.textContent = t; return s; };
+      p.appendChild(strong('Sin cookies.'));
+      p.appendChild(document.createTextNode(' No te rastreamos ni identificamos: solo contamos las visitas de forma anónima y agregada. Tus rezos, progreso y favoritos quedan guardados solo en tu dispositivo. La página la crea y mantiene '));
+      p.appendChild(strong('Ramón Fandos'));
+      p.appendChild(document.createTextNode(' y se aloja en '));
+      p.appendChild(strong('GitHub Pages'));
+      p.appendChild(document.createTextNode(' (servicio de '));
+      p.appendChild(strong('Microsoft'));
+      p.appendChild(document.createTextNode(').'));
+
+      const infoBtn = document.createElement('button');
+      infoBtn.type = 'button';
+      infoBtn.className = 'nci-link';
+      infoBtn.textContent = 'Más información';
+
+      const okBtn = document.createElement('button');
+      okBtn.type = 'button';
+      okBtn.textContent = 'Entendido';
+
+      b.appendChild(p);
+      b.appendChild(infoBtn);
+      b.appendChild(okBtn);
+
+      const removeEl = (el) => { try { if (el && el.parentNode) el.parentNode.removeChild(el); } catch (e) {} };
+      const closeModal = () => {
+        const m = document.getElementById('noCookiesInfo');
+        if (m) removeEl(m);
+        document.removeEventListener('keydown', trapEsc);
       };
-      document.addEventListener('keydown', kb);
-    });
-    document.body.appendChild(b);
+      const openModal = () => {
+        if (document.getElementById('noCookiesInfo')) return;
+        const m = document.createElement('div');
+        m.id = 'noCookiesInfo';
+        m.className = 'no-cookies-info';
+        m.setAttribute('role', 'dialog');
+        m.setAttribute('aria-modal', 'true');
+        m.setAttribute('aria-label', 'Aviso de privacidad');
+        const card = document.createElement('div');
+        card.className = 'nci-card';
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'icon-btn nci-close';
+        x.setAttribute('aria-label', 'Cerrar');
+        x.textContent = '\u00D7';
+        const h3 = document.createElement('h3');
+        h3.textContent = 'Privacidad';
+        const mkP = (...parts) => {
+          const el = document.createElement('p');
+          for (const part of parts) el.appendChild(typeof part === 'string' ? document.createTextNode(part) : part);
+          return el;
+        };
+        const b1 = strong('Sin cookies.');
+        const mk = (t) => strong(t);
+        const ok = document.createElement('button');
+        ok.type = 'button';
+        ok.className = 'nci-ok';
+        ok.textContent = 'Cerrar';
+        card.appendChild(x);
+        card.appendChild(h3);
+        card.appendChild(mkP(b1, ' No te rastreamos ni identificamos: solo contamos visitas de forma anónima y agregada (GoatCounter).'));
+        card.appendChild(mkP('Tus rezos, progreso y favoritos quedan guardados solo en tu dispositivo, funcionan sin conexión y ', mk('no se envían a ningún servidor'), '.'));
+        card.appendChild(mkP('La página la crea y mantiene ', mk('Ramón Fandos'), ' (fandosrj@gmail.com) y se aloja en ', mk('GitHub Pages'), ', servicio de ', mk('Microsoft'), '.'));
+        const more = document.createElement('p');
+        more.className = 'nci-more';
+        const a = document.createElement('a');
+        a.href = '#acerca';
+        a.textContent = 'Aviso legal completo, créditos y estadísticas en "Acerca de y avisos"';
+        more.appendChild(a);
+        card.appendChild(more);
+        card.appendChild(ok);
+        m.appendChild(card);
+        document.body.appendChild(m);
+        x.addEventListener('click', closeModal);
+        ok.addEventListener('click', closeModal);
+        m.addEventListener('click', (e) => { if (e.target === m) closeModal(); });
+      };
+      const trapEsc = (e) => { if (e.key === 'Escape') closeModal(); };
+      document.addEventListener('keydown', trapEsc);
+
+      okBtn.addEventListener('click', () => {
+        try { localStorage.setItem('lh.nocookies', '1'); } catch (e) {}
+        removeEl(b);
+      });
+      infoBtn.addEventListener('click', openModal);
+
+      document.body.appendChild(b);
+    } catch (e) {
+      /* un fallo del aviso nunca debe bloquear la aplicación */
+    }
   }
 
   function registerSW() {
