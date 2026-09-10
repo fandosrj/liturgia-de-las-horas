@@ -3,7 +3,7 @@
    Precarga la app y la librería de rezo (una sola vez).
    ============================================================ */
 
-const CACHE = 'liturgia-horas-v13';
+const CACHE = 'liturgia-horas-v14';
 const CORE = [
   './',
   './index.html',
@@ -59,7 +59,9 @@ self.addEventListener('fetch', (event) => {
       const isLive = req.mode === 'navigate' ||
         url.pathname.endsWith('/app.js') ||
         url.pathname.endsWith('/styles.css') ||
-        url.pathname.endsWith('/index.html');
+        url.pathname.endsWith('/index.html') ||
+        url.pathname.includes('/icons/') ||
+        url.pathname.endsWith('/og-image.png');
       if (!isLive) {
         return caches.match(req).then((cached) => {
           if (cached) return cached;
