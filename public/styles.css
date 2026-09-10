@@ -585,6 +585,27 @@ body {
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* Banner único de privacidad: sin cookies */
+.no-cookies {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 95;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -6px 24px rgba(0,0,0,.18);
+  font-family: var(--sans); font-size: 0.86rem; color: var(--ink);
+}
+.no-cookies p { margin: 0; flex: 1 1 240px; line-height: 1.45; }
+.no-cookies a { color: var(--accent-ink); font-weight: 600; white-space: nowrap; }
+.no-cookies button {
+  border: none; cursor: pointer; border-radius: 999px;
+  background: var(--accent); color: #fff; font-weight: 700;
+  font-family: var(--sans); font-size: 0.86rem; padding: 8px 18px;
+}
+.no-cookies button:hover { filter: brightness(1.06); }
+
 /* Auto-scroll de lectura */
 .autoscroll {
   position: fixed; left: 0; right: 0; z-index: 60;

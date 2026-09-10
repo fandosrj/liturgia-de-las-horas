@@ -1977,6 +1977,26 @@
   }
 
   /* ------------------------------ Init ------------------------------- */
+  function showNoCookiesBanner() {
+    try {
+      if (localStorage.getItem('lh.nocookies')) return;
+    } catch (e) { return; }
+    const b = document.createElement('div');
+    if (!document.body) return;
+    b.className = 'no-cookies';
+    b.setAttribute('role', 'dialog');
+    b.setAttribute('aria-label', 'Aviso de privacidad');
+    b.innerHTML = `<p><b>Sin cookies de ningún tipo.</b> Esta aplicación no usa cookies, no rastrea y no envía tus datos a ningún servidor: todo queda guardado solo en tu dispositivo.</p>
+      <a href="#acerca">Más información</a>
+      <button type="button">Entendido</button>`;
+    const off = () => b.remove();
+    b.querySelector('button').addEventListener('click', () => {
+      try { localStorage.setItem('lh.nocookies', '1'); } catch (e) {}
+      off();
+    });
+    document.body.appendChild(b);
+  }
+
   function registerSW() {
     if ('serviceWorker' in navigator) {
       const onLoad = () => navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -1987,6 +2007,7 @@
 
   async function init() {
     applySettings();
+    showNoCookiesBanner();
     initEvents();
     setTab();
     registerSW();
