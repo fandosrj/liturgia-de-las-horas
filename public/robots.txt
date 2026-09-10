@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://liturgiahoras.github.io/sitemap.xml
