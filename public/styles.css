@@ -1,0 +1,752 @@
+/* ==========================================================================
+   Liturgia de las Horas · Estilos
+   Paleta neutra cálida + acento litúrgico del día (cambia por calendario).
+   ========================================================================== */
+
+:root {
+  --accent: #b8860b;
+  --accent-soft: rgba(184, 134, 11, 0.14);
+  --accent-ink: #8a6500;
+  --bg: #f6f2e9;
+  --bg-soft: #efe9dc;
+  --surface: #ffffff;
+  --surface-2: #faf7f0;
+  --line: #e2dccb;
+  --ink: #26221a;
+  --ink-soft: #6b6455;
+  --ink-faint: #978f7d;
+  --gold: #b8860b;
+  --rub: #b3261e; /* rojo de edición impresa: títulos y citas */
+  --radius: 14px;
+  --shadow: 0 1px 3px rgba(60, 50, 20, 0.08), 0 6px 24px rgba(60, 50, 20, 0.06);
+  --serif: Georgia, 'Palatino Linotype', 'Book Antiqua', 'Times New Roman', serif;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, sans-serif;
+}
+
+html[data-theme="dark"] {
+  --bg: #17151c;
+  --bg-soft: #201d26;
+  --surface: #232028;
+  --surface-2: #1c1a21;
+  --line: #322e39;
+  --ink: #ece5d8;
+  --ink-soft: #a89f8e;
+  --ink-faint: #7e766a;
+  --rub: #ea7d70;
+  --accent-soft: rgba(216, 166, 54, 0.16);
+  --accent-ink: #d8a636;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--serif);
+  line-height: 1.6;
+  min-height: 100vh;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  background: var(--surface);
+  padding: 8px 14px;
+  z-index: 100;
+  border-radius: 0 0 8px 0;
+  text-decoration: none;
+  color: var(--ink);
+}
+.skip-link:focus { left: 0; }
+
+/* ------------------------------ Top bar ------------------------------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px max(14px, env(safe-area-inset-left)) 10px
+           max(14px, env(safe-area-inset-left));
+  padding-right: max(14px, env(safe-area-inset-right));
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { display: flex; align-items: center; gap: 9px; margin-right: auto; min-width: 0; }
+.brand-mark {
+  display: grid; place-items: center;
+  width: 34px; height: 34px; border-radius: 10px;
+  background: var(--accent); color: #fff;
+  flex: none;
+}
+.brand-name { font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; }
+.brand-sub { font-size: 0.72rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 1.6px; white-space: nowrap; }
+
+.icon-btn {
+  background: transparent; border: 1px solid var(--line);
+  color: var(--ink); border-radius: 10px; width: 40px; height: 40px;
+  display: grid; place-items: center; cursor: pointer;
+}
+.icon-btn:hover { background: var(--bg-soft); }
+
+/* ------------------------------ Drawer -------------------------------- */
+.drawer { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+.drawer.open { pointer-events: auto; }
+.drawer-backdrop {
+  position: absolute; inset: 0; background: rgba(20, 16, 8, 0.45);
+  opacity: 0; transition: opacity 0.25s ease;
+}
+.drawer.open .drawer-backdrop { opacity: 1; }
+.drawer-panel {
+  position: absolute; top: 0; bottom: 0; left: 0; width: min(320px, 86vw);
+  background: var(--surface);
+  transform: translateX(-101%); transition: transform 0.28s cubic-bezier(.2,.8,.3,1);
+  display: flex; flex-direction: column;
+  box-shadow: 8px 0 30px rgba(0,0,0,0.25);
+}
+.drawer.open .drawer-panel { transform: translateX(0); }
+.drawer-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 16px 14px; border-bottom: 1px solid var(--line);
+}
+.drawer-nav { list-style: none; margin: 0; padding: 10px; overflow-y: auto; }
+.drawer-nav a {
+  display: block; padding: 11px 14px; border-radius: 10px;
+  color: var(--ink); text-decoration: none; font-size: 1rem;
+}
+.drawer-nav a:hover { background: var(--bg-soft); }
+
+/* ------------------------------- App ---------------------------------- */
+.app { padding: 18px max(14px, env(safe-area-inset-left)) 96px max(14px, env(safe-area-inset-right)); }
+.view { max-width: 760px; margin: 0 auto; }
+.hidden { display: none !important; }
+
+.loading {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 40px 0; color: var(--ink-soft);
+}
+.spinner {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 3px solid var(--line); border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ------------------------------ Hero ---------------------------------- */
+.day-hero {
+  text-align: center;
+  padding: 18px 8px 20px;
+  margin-bottom: 18px;
+}
+.day-hero .date-line { text-transform: uppercase; letter-spacing: 2.2px; font-size: 0.78rem; color: var(--ink-faint); font-family: var(--sans); }
+.day-hero h1 { margin: 8px 0 6px; font-size: clamp(1.35rem, 4.4vw, 1.9rem); font-weight: 700; }
+.day-hero .season { font-size: 0.95rem; color: var(--ink-soft); }
+
+.rank-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent-soft); color: var(--accent-ink);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 999px; padding: 5px 14px; margin-top: 10px;
+  font-size: 0.82rem; font-family: var(--sans);
+}
+.rank-chip .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+
+.day-meta {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+  margin-top: 14px;
+}
+.day-meta .meta {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: 5px 13px; font-size: 0.8rem;
+  color: var(--ink-soft); font-family: var(--sans);
+}
+.day-meta .meta b { color: var(--ink); font-weight: 600; }
+
+.date-nav {
+  display: flex; gap: 8px; justify-content: center; align-items: center;
+  margin: 16px 0 4px;
+}
+.date-nav button {
+  background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+  border-radius: 10px; padding: 9px 14px; cursor: pointer; font-family: var(--sans); font-size: 0.9rem;
+}
+.date-nav button:hover { border-color: var(--accent); }
+.date-nav .date-val {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; padding: 9px 12px; font-family: var(--sans); font-size: 0.9rem;
+  color: var(--ink); min-width: 150px; text-align: center;
+}
+
+/* ---------------------------- Sections -------------------------------- */
+.section-title {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--sans); font-size: 0.74rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 2.2px; color: var(--ink-faint);
+  margin: 26px 0 12px;
+}
+.section-title::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+/* ---------------------------- Hour cards ------------------------------ */
+.hour-card {
+  display: block; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px;
+  text-decoration: none; color: inherit; box-shadow: var(--shadow);
+  transition: border-color 0.2s ease, transform 0.15s ease;
+}
+.hour-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.hour-card.recommended { border-left: 4px solid var(--accent); }
+.hour-card.recommended .hour-card-head::after { content: "Ahora"; color: var(--accent); font-size: 0.78rem; font-family: var(--sans); font-weight: 600; }
+.hour-card-head { display: flex; align-items: baseline; gap: 8px; }
+.hour-name { font-weight: 700; font-size: 1.12rem; }
+.hour-time { font-size: 0.78rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 1.4px; font-family: var(--sans); }
+.hour-check { margin-left: auto; color: var(--ink-faint); font-weight: 700; opacity: 0; transition: opacity 0.2s ease; }
+.hour-check.done { opacity: 1; color: var(--accent); }
+.hour-ant { margin-top: 6px; font-size: 0.9rem; color: var(--ink-soft); font-style: italic; }
+
+/* ----------------------------- Buttons -------------------------------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+  border-radius: 10px; padding: 10px 16px; cursor: pointer;
+  font-family: var(--sans); font-size: 0.92rem; text-decoration: none;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
+
+/* ---------------------------- Prayer view ----------------------------- */
+.prayer-toolbar {
+  position: sticky; top: 58px; z-index: 20;
+  display: flex; align-items: center; gap: 6px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  padding: 8px 0 10px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.prayer-toolbar .tt { flex: 1; }
+.prayer-toolbar h1 { margin: 0; font-size: 1.15rem; }
+.prayer-toolbar .sub { font-size: 0.78rem; color: var(--ink-faint); font-family: var(--sans); }
+.prayer-toolbar .icon-btn { width: 36px; height: 36px; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 18px 20px; margin: 12px 0;
+  box-shadow: var(--shadow);
+}
+
+.rubric {
+  font-family: var(--sans); font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 2px; color: var(--rub);
+  margin: 6px 0 8px;
+}
+
+.prayer .psalm-block { margin: 12px 0 20px; }
+.prayer .psalm-block .psalm-ref {
+  font-size: 0.82rem; color: var(--rub); font-family: var(--sans);
+  font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 4px;
+}
+.prayer .psalm-block .psalm-title { font-weight: 700; margin-bottom: 6px; }
+.prayer .ant {
+  font-style: italic; color: var(--ink); margin: 2px 0 10px;
+  padding-left: 14px; border-left: 2px solid var(--rub);
+}
+.prayer .text { white-space: pre-line; color: var(--ink); }
+.prayer .text p { margin: 0 0 10px; }
+.prayer .gloria {
+  margin-top: 10px; color: var(--ink-soft); font-size: 0.95em;
+}
+.prayer .verse-line { display: block; }
+.prayer .vs { font-weight: 700; font-family: var(--sans); font-size: 0.8rem; color: var(--rub); margin-right: 4px; }
+
+/* Salterio en kathismas: títulos de salmo en rojo, como la edición impresa */
+.psalm-stanzer { color: var(--rub); font-weight: 700; font-family: var(--sans); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 1.1px; margin-bottom: 6px; }
+.section-title.psalm-title-h { color: var(--rub); }
+
+.prayer .reading-box {
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 14px 16px; margin: 12px 0;
+}
+.prayer .reading-box .ref { font-size: 0.8rem; color: var(--rub); font-family: var(--sans); font-weight: 700; text-transform: uppercase; letter-spacing: 1.1px; margin-bottom: 4px; }
+.prayer .reading-box .title { font-weight: 700; color: var(--rub); margin-bottom: 8px; }
+
+.prayer .preces .peticion { margin: 10px 0; }
+.prayer .preces .res-hint {
+  color: var(--ink-faint); font-size: 0.8rem; font-family: var(--sans);
+  display: block; margin-top: 2px;
+}
+
+.prayer .responsorios p { margin: 4px 0; }
+.prayer .responsorios p:first-child { margin-top: 0; }
+
+.prayer .canticle-final { margin-top: 6px; color: var(--ink-soft); }
+
+/* --------------------------- Mark button ------------------------------ */
+.done-bar {
+  display: flex; gap: 10px; align-items: center; justify-content: center;
+  margin: 18px 0 8px;
+  flex-wrap: wrap;
+}
+.btn.marked { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+
+/* ----------------------------- Biblia --------------------------------- */
+.bible-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.bible-grid .book {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; text-decoration: none; color: inherit; font-size: 0.95rem;
+}
+.bible-grid .book:hover { border-color: var(--accent); }
+.bible-grid .book small { display: block; color: var(--ink-faint); font-family: var(--sans); font-size: 0.72rem; }
+.book-group-title { font-family: var(--sans); font-weight: 700; text-transform: uppercase; letter-spacing: 1.6px; font-size: 0.74rem; color: var(--ink-faint); margin: 18px 0 8px; }
+
+.chapters { display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: 8px; max-width: 640px; }
+.chapters a {
+  display: grid; place-items: center; height: 42px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 9px;
+  color: var(--ink); text-decoration: none;
+}
+.chapters a:hover { border-color: var(--accent); }
+
+.verse { margin-bottom: 10px; }
+.verse-num {
+  font-family: var(--sans); font-size: 0.66rem; color: var(--accent-ink);
+  font-weight: 700; vertical-align: super; margin-right: 3px;
+}
+.chapter-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.chapter-head h2 { font-size: 1.15rem; margin: 0; }
+
+.bible-empty {
+  background: var(--bg-soft); border: 1px dashed var(--line);
+  border-radius: var(--radius); padding: 18px;
+  color: var(--ink-soft); margin: 14px 0;
+}
+
+.note-box {
+  background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 12px; padding: 13px 15px; font-size: 0.9rem;
+  color: var(--ink); margin: 12px 0;
+}
+
+/* ------------------------------ Settings ------------------------------ */
+.setting-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 14px 16px; margin: 10px 0;
+}
+.setting-row .lbl { font-weight: 600; }
+.setting-row .desc { font-size: 0.82rem; color: var(--ink-soft); font-family: var(--sans); }
+
+/* Switch */
+.switch { position: relative; width: 46px; height: 26px; flex: none; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .sl {
+  position: absolute; inset: 0; cursor: pointer; background: var(--line);
+  border-radius: 999px; transition: 0.2s;
+}
+.switch .sl::before {
+  content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px;
+  background: #fff; border-radius: 50%; transition: 0.2s;
+}
+.switch input:checked + .sl { background: var(--accent); }
+.switch input:checked + .sl::before { transform: translateX(20px); }
+
+.seg { display: inline-flex; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button {
+  border: 0; background: transparent; padding: 9px 14px; cursor: pointer;
+  font-family: var(--sans); font-size: 0.88rem; color: var(--ink-soft);
+}
+.seg button.active { background: var(--accent); color: #fff; font-weight: 600; }
+
+/* ------------------------------ Acerca -------------------------------- */
+.legal h3 { margin-bottom: 4px; }
+.legal p, .legal li { color: var(--ink-soft); font-size: 0.92rem; }
+.legal code { background: var(--bg-soft); padding: 1px 6px; border-radius: 6px; font-size: 0.85em; }
+
+/* ------------------------------ Tabbar -------------------------------- */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  display: flex; background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabbar .tab {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px 4px 7px; color: var(--ink-faint); text-decoration: none;
+  font-family: var(--sans); font-size: 0.68rem;
+}
+.tabbar .tab.active { color: var(--accent-ink); }
+.tabbar .tab.active::before {
+  content: ""; position: absolute; top: 0; left: 22%; right: 22%; height: 3px;
+  background: var(--accent); border-radius: 0 0 3px 3px;
+}
+.tabbar .tab { position: relative; }
+
+/* ---------------------------- Responsive ------------------------------ */
+@media (min-width: 760px) {
+  .drawer-panel { width: 340px; }
+  .app { padding-top: 26px; }
+}
+
+@media print {
+  .topbar, .drawer, .tabbar, .prayer-toolbar .icon-btn, .date-nav, .done-bar { display: none; }
+  body { background: #fff; }
+  .app { padding: 0; }
+}
+
+/* ========================= Comunidad ========================= */
+/* Presencia en portada */
+.chorus-banner {
+  margin: 16px 0 4px; border: 1px solid var(--line);
+  border-radius: 14px; overflow: hidden; background: var(--surface);
+}
+.chorus-banner a {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  color: var(--ink); text-decoration: none; font-family: var(--sans);
+}
+.chorus-banner .cb-icon {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--accent); color: var(--accent-ink);
+  display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+}
+.chorus-banner .cb-sub { color: var(--ink-soft); font-size: 0.8rem; }
+.geo-note .btn-row { margin-top: 10px; }
+
+.prayed-banner {
+  margin: 14px 0 4px; padding: 12px 16px; border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  font-size: 0.95rem;
+}
+
+/* Peticiones */
+.intentions .int-sub { color: var(--ink-soft); font-size: 0.85rem; font-family: var(--sans); margin: 6px 0 14px; }
+#int-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+#int-text {
+  width: 100%; min-height: 76px; resize: vertical; padding: 12px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--surface2);
+  color: var(--ink); font: inherit; font-size: 0.95rem;
+}
+#int-hint { color: var(--accent-ink); font-family: var(--sans); font-size: 0.85rem; }
+.int-empty { color: var(--ink-faint); font-style: italic; }
+.int-item { border-top: 1px solid var(--line); padding: 12px 2px; }
+.int-item .int-text { margin: 0 0 8px; font-size: 0.98rem; }
+.int-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.int-count { color: var(--ink-soft); font-family: var(--sans); font-size: 0.8rem; }
+.int-report { background: none; border: none; color: var(--ink-faint); font-family: var(--sans); font-size: 0.7rem; text-decoration: underline; cursor: pointer; }
+.int-report:disabled { opacity: .5; }
+.btn.small { padding: 6px 10px; font-size: 0.8rem; }
+.int-mine { margin-bottom: 10px; }
+
+/* Comunidad general */
+.comm-sub { color: var(--ink-soft); font-size: 0.85rem; font-family: var(--sans); line-height: 1.45; }
+.comm-tabs { margin-bottom: 16px; }
+.comm-map { height: 340px; border-radius: 14px; overflow: hidden; z-index: 1; }
+.comm-map .leaflet-container { background: #dbe7ef; }
+.chorus-card .chorus-big { font-size: 1.2rem; font-family: var(--sans); margin-bottom: 8px; }
+.chorus-card .chorus-big b { color: var(--accent-ink); font-size: 1.5rem; }
+.chorus-hours { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.chip {
+  display: inline-block; padding: 4px 10px; border-radius: 999px;
+  background: var(--surface2); border: 1px solid var(--line);
+  font-family: var(--sans); font-size: 0.78rem; color: var(--ink);
+}
+.chip.dim { color: var(--ink-faint); }
+.comm-rt { text-align: center; color: var(--ink-faint); font-family: var(--sans); font-size: 0.75rem; margin-top: 8px; }
+
+.col-form { display: flex; flex-direction: column; gap: 10px; max-width: 420px; }
+.col-form input { padding: 10px 12px; }
+
+/* Coros */
+.choir-card { margin-bottom: 14px; }
+.choir-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.choir-members { margin: 4px 0 10px; }
+.choir-member {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 0; border-top: 1px dashed var(--line); flex-wrap: wrap;
+}
+.choir-member b { font-family: var(--sans); font-size: 0.9rem; min-width: 90px; }
+.hstrip { display: flex; gap: 4px; margin-left: 6px; }
+.hslot {
+  width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.66rem; color: var(--ink-faint);
+  border: 1px solid var(--line);
+}
+.hslot.done { color: var(--accent-ink); border-color: var(--accent); }
+.hslot.now {
+  border-color: var(--accent); color: var(--accent-ink);
+  box-shadow: 0 0 8px var(--accent); animation: pulse 1.6s infinite;
+}
+@keyframes pulse { 50% { box-shadow: 0 0 2px var(--accent); } }
+.choir-now { color: var(--accent-ink); font-family: var(--sans); font-size: 0.75rem; }
+.choir-legend { color: var(--ink-faint); font-family: var(--sans); font-size: 0.7rem; margin-top: 6px; }
+
+.offline-msg { color: var(--ink-soft); font-style: italic; }
+
+/* ─────────── Portada: “Ahora rezamos juntos” ─────────── */
+.home-hero {
+  text-align: center;
+  padding: 28px 16px 22px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+    var(--surface);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: 18px;
+}
+.home-hero .celebration {
+  font-family: var(--sans); font-size: 0.8rem; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent-ink); margin-bottom: 10px;
+}
+.home-hero .now-label {
+  font-family: var(--sans); font-size: 0.85rem; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--ink-faint); margin-bottom: 2px;
+}
+.home-hero .hero-hour {
+  font-family: var(--serif); font-size: 3rem; line-height: 1.1;
+  margin: 4px 0 6px; color: var(--ink);
+}
+.home-hero .date-line { color: var(--ink-soft); font-family: var(--sans); }
+.hero-done { margin-top: 12px; color: var(--accent-ink); font-family: var(--sans); font-size: 0.85rem; }
+.rezar-btn {
+  display: block; width: min(100%, 320px); margin: 18px auto 0;
+  padding: 16px; border-radius: 999px; border: none; cursor: pointer;
+  background: var(--accent); color: var(--accent-ink);
+  font-family: var(--sans); font-weight: 800; font-size: 1.25rem; letter-spacing: 0.18em;
+  text-align: center; text-decoration: none; box-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.rezar-btn:active { transform: scale(0.98); }
+
+.now-praying {
+  margin: 16px 0 4px; padding: 16px; border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  text-align: center;
+}
+.np-count { font-family: var(--sans); display: flex; flex-direction: column; }
+#np-total { font-family: var(--serif); font-size: 2.6rem; line-height: 1; color: var(--accent-ink); }
+#np-label { color: var(--ink-soft); font-size: 0.9rem; margin-top: 4px; }
+.np-countries { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+.np-country {
+  padding: 5px 11px; border-radius: 999px; background: var(--surface2);
+  border: 1px solid var(--line); font-family: var(--sans); font-size: 0.82rem;
+}
+.np-solo {
+  margin-top: 10px; color: var(--accent-ink); font-family: var(--serif);
+  font-style: italic; font-size: 1.05rem;
+}
+
+.hour-chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 16px; }
+.hour-chip {
+  padding: 8px 14px; border-radius: 999px; text-decoration: none;
+  background: var(--surface2); border: 1px solid var(--line);
+  color: var(--ink); font-family: var(--sans); font-size: 0.85rem;
+}
+.hour-chip.recommended { border-color: var(--accent); color: var(--accent-ink); }
+.hour-chip.done { color: var(--ink-faint); }
+.hour-chip:active { transform: scale(0.97); }
+
+/* Reza con alguien (franja dentro de la hora) */
+.now-others {
+  margin: 14px 0 4px; padding: 12px 16px; border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  font-family: var(--sans); font-size: 0.88rem; text-align: center;
+}
+.now-others a { color: var(--accent-ink); }
+
+/* Avisos (toasts) */
+.toast {
+  position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(16px); z-index: 90;
+  max-width: min(92vw, 480px); padding: 13px 18px; border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  color: var(--ink); font-family: var(--sans); font-size: 0.9rem;
+  box-shadow: 0 8px 30px rgba(0,0,0,.25);
+  opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Auto-scroll de lectura */
+.autoscroll {
+  position: fixed; left: 0; right: 0; z-index: 60;
+  bottom: calc(58px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid var(--line);
+}
+.as-play {
+  width: 42px; height: 42px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--accent); color: var(--accent-ink); font-size: 0.95rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.as-speeds { display: flex; gap: 6px; }
+.as-chip {
+  padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface2); color: var(--ink); font-family: var(--sans); font-size: 0.75rem; cursor: pointer;
+}
+.as-chip.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+@media print {
+  .autoscroll, .toast, .now-others { display: none !important; }
+}
+
+/* --------------------- Mis salmos y rezos personalizados --------------------- */
+.fav-s {
+  float: right;
+  border: none; background: transparent; cursor: pointer;
+  color: var(--ink-faint); font-size: 1.05rem; line-height: 1;
+  padding: 2px 4px; margin-left: 8px; vertical-align: middle;
+}
+.fav-s:hover { color: var(--accent); }
+.fav-s.on { color: var(--accent); }
+.fav-s-inline {
+  color: var(--accent); font-size: 1.05rem;
+  background: var(--accent-soft); padding: 1px 5px; border-radius: 6px;
+}
+.personal-pick-group { margin: 10px 0; }
+.personal-pick-group .pick { display: block; margin: 3px 0; }
+.section-sub {
+  font-family: var(--sans); font-size: 0.82rem; font-weight: 600;
+  color: var(--ink-soft); margin: 8px 0 6px;
+}
+.personal-title { font-weight: 700; margin: 2px 0 10px; }
+.field-label {
+  display: block; font-family: var(--sans); font-size: 0.8rem;
+  color: var(--ink-soft); margin: 10px 0 4px;
+}
+.input {
+  width: 100%; box-sizing: border-box; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface-2); color: var(--ink); font-size: 0.95rem;
+}
+.input:focus { outline: none; border-color: var(--accent); }
+
+/* --------------------------- Rezo en latín --------------------------- */
+.lat-head { display: flex; align-items: flex-start; gap: 10px; }
+.lat-head .psalm-ref { flex: 1; margin-top: 4px; }
+.lat-play {
+  border: none; background: var(--accent); color: var(--accent-ink);
+  min-width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
+  font-size: 0.9rem; flex: none;
+}
+.lat-row {
+  display: flex; gap: 12px; margin: 8px 0;
+  align-items: baseline;
+}
+.lat-la {
+  flex: 1 1 50%; font-style: italic; color: var(--ink);
+}
+.lat-es {
+  flex: 1 1 50%; color: var(--ink-soft);
+  border-left: 2px solid var(--accent-soft); padding-left: 12px;
+}
+.lat-block .lat-row { margin: 8px 0; }
+@media (pointer: coarse) {
+  .lat-row { flex-direction: column; gap: 1px; }
+  .lat-es { border-left: none; padding-left: 0; padding-top: 10px; }
+}
+
+/* ---------------------------- Oficio Divino ---------------------------- */
+.vresp { margin: 4px 0; }
+.orth-oracion {
+  margin: 12px 0; padding: 12px 14px;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-left: 3px solid var(--accent); border-radius: 12px;
+}
+
+/* ------------------------ Rezos del día (ePrex) ------------------------ */
+.saints-box {
+  margin: 14px 0 4px;
+}
+.saints-line {
+  font-size: 0.95rem; color: var(--ink);
+  display: flex; align-items: baseline; gap: 2px;
+}
+.saints-line b { color: var(--accent-ink); }
+
+.rezo-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px; margin: 4px 0 6px;
+}
+.rezo-card {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 12px 12px;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-top: 3px solid var(--accent); border-radius: 12px;
+  text-decoration: none; color: var(--ink);
+  transition: transform .12s ease, border-color .12s ease;
+}
+.rezo-card:hover { transform: translateY(-1px); border-color: var(--accent); }
+.rezo-card.done { opacity: .85; }
+.rezo-card.done .rezo-titulo { color: var(--accent-ink); }
+.rezo-icon { font-size: 1.3rem; line-height: 1.2; }
+.rezo-titulo { font-weight: 600; font-family: var(--serif); }
+.rezo-sub { font-size: 0.78rem; color: var(--ink-soft); }
+
+.orac-list { display: flex; flex-direction: column; gap: 8px; }
+.orac-item {
+  padding: 12px 14px;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-left: 3px solid var(--accent); border-radius: 10px;
+  text-decoration: none; color: var(--ink);
+}
+.orac-item:hover { border-color: var(--accent); }
+.orac-item.done .orac-titulo { color: var(--accent-ink); }
+.orac-titulo { font-weight: 600; font-family: var(--serif); }
+.orac-fuente { font-size: 0.78rem; color: var(--ink-soft); }
+
+.mystery-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px; margin: 4px 0 6px;
+}
+.mystery-card {
+  padding: 12px 14px;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-top: 3px solid var(--accent); border-radius: 12px;
+  text-decoration: none; color: var(--ink);
+}
+.mystery-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.mystery-card.hoy { border-top: 4px solid var(--accent); background: var(--accent-soft); }
+.mystery-card.done .mystery-chip { color: var(--accent-ink); }
+.mystery-card ol { margin: 8px 0 4px; padding-left: 18px; font-size: 0.85rem; }
+.mystery-chip {
+  display: inline-block; font-weight: 700; font-family: var(--sans);
+  text-transform: uppercase; letter-spacing: 2px; font-size: 0.75rem;
+  color: var(--accent-ink);
+}
+.mystery-done { margin-top: 6px; color: var(--accent-ink); font-size: 0.82rem; }
+
+.beads {
+  display: flex; justify-content: space-between; gap: 6px;
+  margin: 10px 0 6px;
+}
+.bead {
+  flex: 1; max-width: 26px; height: 26px; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--line);
+}
+.bead.done { background: var(--accent); border-color: var(--accent); }
+.bead.active {
+  background: var(--accent-soft); border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.mystery-step { text-align: center; }
+.mystery-title { font-family: var(--serif); margin: 6px 0 2px; }
+.mystery-fruto { color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 8px; }
+.ros-intro { text-align: center; }
+.ros-nav { margin-top: 18px; }
+.ros-done { text-align: center; }
+.prayer.rosario p { text-align: left; }

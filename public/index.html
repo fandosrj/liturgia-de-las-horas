@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Liturgia de las Horas</title>
+<meta name="description" content="La oración oficial de la Iglesia Católica en tu dispositivo: las siete horas, salterio de cuatro semanas, santoral, lecturas del día y comunidad de oración. Funciona sin conexión.">
+<meta name="theme-color" id="meta-theme" content="#1a1a2e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.min.css">
+</head>
+<body>
+<a class="skip-link" href="#app">Saltar al contenido</a>
+
+<header class="topbar">
+  <button class="icon-btn" id="btn-menu" aria-label="Abrir menú" aria-expanded="false">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M3 6h18v2H3zM3 11h18v2H3zM3 16h18v2H3z"/></svg>
+  </button>
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 2c.9 0 1.7.4 2.2 1l1.6-1.4L17 3c.9.4 1.6 1.1 2 2l1.8-.9.9 1.9c.2.9.2 1.9 0 2.8l.9 1.8-1.9.9c-.4 1.9-1.1 3.7-2 5.4L12 22l-5.9-1.1c-1.4-3.4-2.3-7-2.5-10.6-1-.3-2-.9-2.7-1.8l1.9-.9c.6-1.3 1.5-2.4 2.7-3.2L7.5 2l1.6 1.4c.2 0 .4-.1.6-.1l1.3.6L12 2zm.9 6.6c-1.3 0-2.3 1-2.3 2.3 0 .7.3 1.3.8 1.7l-.9 3.5c3.2.4 6.2-1.7 6.8-4.9.6-3.3-1.6-6.4-4.9-7.1-.1.9-.3 1.8-.5 2.7-.4.9-1 1.7-1.7 2.4l.2 1.6c.6.1 1.1.5 1.3 1.1.3.8 0 1.7-.8 2z"/></svg></span>
+    <span class="brand-name">Liturgia de las Horas</span>
+    <span class="brand-sub" id="brand-sub">Oremus</span>
+  </div>
+  <button class="icon-btn" id="btn-settings" aria-label="Ajustes">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.3 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1l.3 2.9h4l.3-2.9c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5L19.4 13zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></svg>
+  </button>
+</header>
+
+<nav class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-backdrop"></div>
+  <div class="drawer-panel">
+    <div class="drawer-head">
+      <span class="brand-name">Liturgia de las Horas</span>
+      <button class="icon-btn" id="btn-close-menu" aria-label="Cerrar menú">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z"/></svg>
+      </button>
+    </div>
+    <ul class="drawer-nav">
+      <li><a href="#hoy">Hoy</a></li>
+      <li><a href="#hora/oficio">Oficio de lectura</a></li>
+      <li><a href="#hora/laudes">Laudes</a></li>
+      <li><a href="#hora/tercia">Tercia</a></li>
+      <li><a href="#hora/sexta">Sexta</a></li>
+      <li><a href="#hora/nona">Nona</a></li>
+      <li><a href="#hora/visperas">Vísperas</a></li>
+      <li><a href="#hora/completas">Completas</a></li>
+      <li><a href="#misal">Misal y Lecturas del día</a></li>
+      <li><a href="#rosario">Santo Rosario</a></li>
+      <li><a href="#coronilla">Coronilla de la Divina Misericordia</a></li>
+      <li><a href="#angelus">Ángelus</a></li>
+      <li><a href="#oraciones">Oraciones</a></li>
+      <li><a href="#biblia">Biblia</a></li>
+      <li><a href="#personal">Mis salmos y rezos</a></li>
+      <li><a href="#latin">Rezo en latín</a></li>
+      <li><a href="#comunidad">Comunidad de rezo</a></li>
+      <li><a href="#ortodoxa">La Liturgia Ortodoxa</a></li>
+      <li><a href="#acerca">Acerca de y avisos</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main id="app" class="app">
+  <div id="view" class="view" aria-live="polite"></div>
+  <div id="loading" class="loading hidden" role="status">
+    <span class="spinner" aria-hidden="true"></span>
+    <span>Preparando la oración…</span>
+  </div>
+</main>
+
+<nav class="tabbar" id="tabbar" aria-label="Secciones">
+  <a href="#hoy" class="tab" data-tab="hoy">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6zm7 1.5L18.5 9H13V3.5zM8 12h8v2H8v-2zm0 4h8v2H8v-2z"/></svg>
+    <span>Hoy</span>
+  </a>
+  <a href="#hora/visperas" class="tab" data-tab="visperas">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M17.7 14.3A8 8 0 0 1 6.2 3.3a8 8 0 1 0 11.5 11z"/></svg>
+    <span>Vísperas</span>
+  </a>
+  <a href="#biblia" class="tab" data-tab="biblia">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2V5zm4 4h8V7H8v2zm0 4h8v-2H8v2zm0 4h5v-2H8v2z"/></svg>
+    <span>Biblia</span>
+  </a>
+  <a href="#misal" class="tab" data-tab="lecturas">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M20 4h-4a4 4 0 0 0-4 4v12a3 3 0 0 0-3-3H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16zM12 8a4 4 0 0 0-4-4H4v9h2V8a2 2 0 0 1 2-2h4V8zm6 6-2.5-1.5V20l3-1 3 1v-7.5L18 14z"/></svg>
+    <span>Lecturas</span>
+  </a>
+  <a href="#acerca" class="tab" data-tab="acerca">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M11 4h2v2h-2V4zm-1 16h2V8h-2v12zM12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>
+    <span>Info</span>
+  </a>
+</nav>
+
+<template id="tpl-hour-card">
+  <a class="hour-card" href="#hora/__id__">
+    <div class="hour-card-head">
+      <span class="hour-name">__name__</span>
+      <span class="hour-time">__time__</span>
+      <span class="hour-check" data-check="__id__" title="Rezada">&#10003;</span>
+    </div>
+    <div class="hour-card-body">
+      <div class="hour-ant" data-ant="__id__">…</div>
+    </div>
+  </a>
+</template>
+
+<script src="vendor/breviarium.umd.js"></script>
+<script src="vendor/leaflet/leaflet.min.js"></script>
+<script src="lib/store.js"></script>
+<script src="lib/favs.js"></script>
+<script src="lib/latin.js"></script>
+<script src="lib/ortodoxo.js"></script>
+<script src="lib/salterio.js"></script>
+<script src="lib/santos.js"></script>
+<script src="lib/oraciones.js"></script>
+<script src="lib/liturgy.js"></script>
+<script src="lib/biblia.js"></script>
+<script src="lib/community.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

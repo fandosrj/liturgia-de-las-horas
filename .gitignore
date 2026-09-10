@@ -1,0 +1,21 @@
+# Dependencias y entorno
+node_modules/
+.env
+.env.local
+
+# Datos locales (usuarios, rezos, bases de datos)
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Logs y temporales
+*.log
+*.pid
+Thumbs.db
+.DS_Store
+
+# Editor / SO
+.vscode/
+.idea/
