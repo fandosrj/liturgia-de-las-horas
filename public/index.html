@@ -118,6 +118,17 @@
 <script src="lib/liturgy.js"></script>
 <script src="lib/biblia.js"></script>
 <script src="lib/community.js"></script>
+<script>
+  window.goatcounter = { no_onload: true };
+  (function(){
+    function track(){
+      try { if (window.goatcounter && typeof window.goatcounter.count === 'function') window.goatcounter.count({ path: location.pathname + location.hash }); } catch (e) {}
+    }
+    window.addEventListener('load', track);
+    window.addEventListener('hashchange', track);
+  })();
+</script>
+<script data-goatcounter="https://liturgiahoras.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
