@@ -1,33 +1,7 @@
-<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <radialGradient id="bg" cx="50%" cy="35%" r="78%">
-      <stop offset="0%" stop-color="#18233f"/>
-      <stop offset="65%" stop-color="#0e1530"/>
-      <stop offset="100%" stop-color="#080c20"/>
-    </radialGradient>
-    <radialGradient id="glow" cx="50%" cy="55%" r="55%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
-      <stop offset="70%" stop-color="#ffffff" stop-opacity="0.05"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-  <rect width="200" height="200" rx="40" fill="url(#bg)"/>
-  <rect width="200" height="200" rx="40" fill="url(#glow)"/>
-
-  <!-- Paloma del Espíritu Santo + Breviario al máximo, sin márgenes -->
-  <g transform="translate(100,98.5) scale(1.7) translate(-100,-98.5)">
-    <g vector-effect="non-scaling-stroke">
-      <!-- Paloma -->
-      <path stroke="#ffd96a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 88,112 C 70,110 60,95 62,75 C 65,50 82,42 98,62 C 105,48 118,35 128,52 C 120,60 115,70 118,80 C 122,90 112,102 95,108"/>
-      <path stroke="#ffd96a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 118,80 C 123,76 128,78 128,84 C 124,88 120,86 117,85"/>
-      <path stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 80,68 C 88,58 100,55 106,68"/>
-      <path stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 75,80 C 85,70 95,68 102,80"/>
-      <!-- Breviario -->
-      <path stroke="#ffd96a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 34,140 Q 64,156 100,145 Q 136,156 166,140 L 166,146 Q 136,162 100,151 Q 64,162 34,146 Z"/>
-      <path stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 37,135 Q 67,149 98,138 L 98,111 Q 67,122 37,109 Z"/>
-      <path stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 163,135 Q 133,149 102,138 L 102,111 Q 133,122 163,109 Z"/>
-      <path stroke="#ffd96a" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 41,128 Q 67,139 96,130"/>
-      <path stroke="#ffd96a" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M 159,128 Q 133,139 104,130"/>
-    </g>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1a1a2e"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#b8860b" stroke-width="22"/>
+  <rect x="228" y="150" width="56" height="212" rx="14" fill="#b8860b"/>
+  <rect x="150" y="228" width="212" height="56" rx="14" fill="#b8860b"/>
+  <rect x="200" y="352" width="112" height="14" rx="7" fill="#b8860b"/>
 </svg>
