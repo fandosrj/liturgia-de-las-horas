@@ -1464,7 +1464,12 @@
     const s = Store.get();
     const fs = { S: 'Peque\u00f1a', M: 'Normal', L: 'Grande', XL: 'Muy grande' };
     view.innerHTML = `
-      <div class="section-title">Ajustes</div>
+      <div class="prayer-toolbar">
+        <button class="icon-btn" onclick="location.hash='#hoy'" aria-label="Volver">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2z"/></svg>
+        </button>
+        <div class="tt"><h1>Ajustes</h1></div>
+      </div>
 
       <div class="card">
         <div class="setting-row">
