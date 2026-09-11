@@ -3,7 +3,7 @@
    Precarga la app y la librería de rezo (una sola vez).
    ============================================================ */
 
-const CACHE = 'liturgia-horas-v16';
+const CACHE = 'liturgia-horas-v17';
 const CORE = [
   './',
   './index.html',
@@ -74,7 +74,7 @@ self.addEventListener('fetch', (event) => {
           });
         });
       }
-      return fetch(req).then((res) => {
+      return fetch(req, { cache: 'no-store' }).then((res) => {
         if (res && res.status === 200) {
           const clone = res.clone();
           caches.open(CACHE).then((cache) => cache.put(req, clone));
