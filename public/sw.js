@@ -3,7 +3,7 @@
    Precarga la app y la librería de rezo (una sola vez).
    ============================================================ */
 
-const CACHE = 'liturgia-horas-v22';
+const CACHE = 'liturgia-horas-v23';
 const CORE = [
   './',
   './index.html',
