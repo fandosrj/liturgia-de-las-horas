@@ -59,6 +59,8 @@
   }
 
   async function route() {
+    const existingAs = document.querySelector('.autoscroll');
+    if (existingAs) existingAs.remove();
     const h = parseHash();
     if (h.startsWith('hora/')) return hourView(h.split('/')[1]);
     if (h.startsWith('biblia/libro/')) return bibliaBookView(h.split('/')[2]);
@@ -338,10 +340,10 @@
 
   /* ----------------------- Auto-scroll de lectura ----------------------- */
   const AS_SPEEDS = [
-    { k: 'Lento', v: 18 },
-    { k: 'Suave', v: 33 },
-    { k: 'Normal', v: 56 },
-    { k: 'Rápido', v: 88 }
+    { k: 'Lento', short: 'Lto', v: 18 },
+    { k: 'Suave', short: 'Sve', v: 33 },
+    { k: 'Normal', short: 'Nrm', v: 56 },
+    { k: 'Rápido', short: 'Rpd', v: 88 }
   ];
   const as = { raf: null, speed: 1, on: false, acc: 0 };
 
@@ -351,14 +353,14 @@
     const saved = parseInt(localStorage.getItem('liturgia.as.v1') || '1', 10);
     if (saved >= 0 && saved < AS_SPEEDS.length) as.speed = saved;
     let html = `<div class="autoscroll" id="autoscroll">
-      <button class="as-play" id="as-play" title="Reproducir / pausar">&#9654;</button>
+      <button class="as-play" id="as-play" title="Reproducir / pausar" aria-label="Reproducir o pausar el autoscroll">&#9654;</button>
       <div class="as-speeds">`;
     AS_SPEEDS.forEach((s, i) => {
-      html += `<button data-as="${i}" class="as-chip${i === as.speed ? ' active' : ''}">${s.k}</button>`;
+      html += `<button data-as="${i}" class="as-chip${i === as.speed ? ' active' : ''}" title="${s.k}" aria-label="Velocidad ${s.k}">${s.short}</button>`;
     });
     html += `</div></div>`;
-    const view = document.querySelector('#view');
-    if (view) view.insertAdjacentHTML('beforeend', html);
+    const tabbar = document.querySelector('#tabbar');
+    if (tabbar) tabbar.insertAdjacentHTML('beforeend', html);
     wireAs();
   }
 
