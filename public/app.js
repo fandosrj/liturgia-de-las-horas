@@ -2454,6 +2454,12 @@
     };
     $('#btn-close-menu').addEventListener('click', closeMenu);
     drawer.querySelector('.drawer-backdrop').addEventListener('click', closeMenu);
+    // Si el enlace pulsado ya es la pantalla actual, el hash no cambia y el
+    // evento hashchange no salta: cerramos el menú aquí para que nunca se
+    // quede abierto.
+    drawer.querySelectorAll('a[href^="#"]').forEach((a) => {
+      a.addEventListener('click', closeMenu);
+    });
 
     // Cerrar menú al navegar
     window.addEventListener('hashchange', () => {
