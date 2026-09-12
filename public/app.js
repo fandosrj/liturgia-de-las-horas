@@ -61,6 +61,7 @@
   async function route() {
     const existingAs = document.querySelector('.autoscroll');
     if (existingAs) existingAs.remove();
+    stopSpeak();
     const h = parseHash();
     if (h.startsWith('hora/')) return hourView(h.split('/')[1]);
     if (h.startsWith('biblia/libro/')) return bibliaBookView(h.split('/')[2]);
@@ -352,9 +353,13 @@
     if (existing) existing.remove();
     const saved = parseInt(localStorage.getItem('liturgia.as.v1') || '1', 10);
     if (saved >= 0 && saved < AS_SPEEDS.length) as.speed = saved;
+    const canSpeak = !!view.querySelector('.prayer') && ('speechSynthesis' in window);
     let html = `<div class="autoscroll" id="autoscroll">
-      <button class="as-play" id="as-play" title="Reproducir / pausar" aria-label="Reproducir o pausar el autoscroll">&#9654;</button>
-      <div class="as-speeds">`;
+      <button class="as-play" id="as-play" title="Reproducir / pausar" aria-label="Reproducir o pausar el autoscroll">&#9654;</button>`;
+    if (canSpeak) {
+      html += `<button class="as-play" id="as-speak" title="Leer en voz alta" aria-label="Leer esta hora en voz alta">&#128266;</button>`;
+    }
+    html += `<div class="as-speeds">`;
     AS_SPEEDS.forEach((s, i) => {
       html += `<button data-as="${i}" class="as-chip${i === as.speed ? ' active' : ''}" title="${s.k}" aria-label="Velocidad ${s.k}">${s.short}</button>`;
     });
@@ -362,6 +367,44 @@
     const tabbar = document.querySelector('#tabbar');
     if (tabbar) tabbar.insertAdjacentHTML('beforeend', html);
     wireAs();
+    if (canSpeak) wireSpeak();
+  }
+
+  /* --------------------------- Leer en voz alta (español) --------------------------- */
+  let speaking = false;
+  function wireSpeak() {
+    const btn = document.querySelector('#as-speak');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      if (speaking) { stopSpeak(); return; }
+      const el = view.querySelector('.prayer');
+      const texto = el ? el.innerText || el.textContent : '';
+      if (!texto || !texto.trim()) return;
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(texto);
+        u.lang = 'es-ES';
+        u.rate = 0.95;
+        const voices = window.speechSynthesis.getVoices();
+        const v = voices.find((x) => (x.lang || '').toLowerCase().indexOf('es') === 0);
+        if (v) u.voice = v;
+        u.onend = () => { speaking = false; setSpeakIcon(btn, false); };
+        u.onerror = () => { speaking = false; setSpeakIcon(btn, false); };
+        window.speechSynthesis.speak(u);
+        speaking = true;
+        setSpeakIcon(btn, true);
+      } catch (e) { /* sin soporte de voz: se ignora */ }
+    });
+  }
+  function setSpeakIcon(btn, on) {
+    btn.innerHTML = on ? '&#10074;&#10074;' : '&#128266;';
+    btn.setAttribute('aria-label', on ? 'Detener la lectura en voz alta' : 'Leer esta hora en voz alta');
+  }
+  function stopSpeak() {
+    try { window.speechSynthesis.cancel(); } catch (e) { }
+    speaking = false;
+    const btn = document.querySelector('#as-speak');
+    if (btn) setSpeakIcon(btn, false);
   }
 
   function wireAs() {
@@ -2281,6 +2324,19 @@
     }
   }
 
+  function wireNativeBackButton() {
+    const AppPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if (!AppPlugin) return; // solo aplica en la app nativa
+    AppPlugin.addListener('backButton', () => {
+      const h = location.hash.replace(/^#/, '');
+      if (h && h !== 'hoy') {
+        window.history.back();
+      } else {
+        AppPlugin.exitApp();
+      }
+    });
+  }
+
   async function init() {
     applySettings();
     showNoCookiesBanner();
@@ -2297,6 +2353,7 @@
       Community.on('chorevt', onChorevt);
     }
     document.addEventListener('visibilitychange', () => { if (document.hidden) asStop(); });
+    wireNativeBackButton();
     applyReminders();
     route();
   }
