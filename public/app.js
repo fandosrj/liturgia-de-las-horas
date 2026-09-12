@@ -22,8 +22,17 @@
 
   function iso(d) { return d.toISOString().slice(0, 10); }
 
-  // Versión web estática (GitHub Pages): sin servidor -> sin comunidad/presencia.
+  // Versión web estática (GitHub Pages, ramonfandos.es...): sin servidor -> sin comunidad/presencia.
   const GH = window.LH_GH === 1 || /^([a-z0-9-]+\.)?[a-z0-9-]+\.github\.io$/i.test(location.hostname || '');
+
+  // Nombre del hosting real, para los textos de privacidad: puede haber más
+  // de una copia estática (GitHub Pages, ramonfandos.es) además de Render.
+  function hostingInfo() {
+    const host = (location.hostname || '').toLowerCase();
+    if (/(^|\.)github\.io$/.test(host)) return { name: 'GitHub Pages', owner: 'Microsoft' };
+    if (host === 'ramonfandos.es' || host.endsWith('.ramonfandos.es')) return { name: 'DonDominio', owner: null };
+    return { name: 'Render', owner: null };
+  }
 
   /* -------------------------- Temas / ajustes -------------------------- */
   function applySettings() {
@@ -2153,7 +2162,7 @@
         <h3>Aviso legal y política de privacidad</h3>
         <p><b>Titular:</b> Ramón Fandos.<br>
         <b>Contacto:</b> fandosrj@gmail.com</p>
-        <p>Esta versión web <b>no crea cuentas</b> ni <b>utiliza cookies de rastreo</b> (ni propias, ni de terceros): el rezo, el progreso, los favoritos y los textos que importes se guardan únicamente en tu dispositivo${GH ? ', y no se envían a ningún servidor' : '; solo los datos anónimos de comunidad (presencia, intenciones, coros) descritos arriba viajan a nuestro servidor'}. La página se aloja en <b>${GH ? 'GitHub Pages</b>, servicio de <b>Microsoft' : 'Render'}</b>; ${GH ? 'GitHub' : 'Render'}, como cualquier proveedor de hosting, puede registrar los datos de acceso habituales (IP, fecha, navegador) para su operativa y seguridad, sin relación con el contenido que rezas.</p>
+        <p>Esta versión web <b>no crea cuentas</b> ni <b>utiliza cookies de rastreo</b> (ni propias, ni de terceros): el rezo, el progreso, los favoritos y los textos que importes se guardan únicamente en tu dispositivo${GH ? ', y no se envían a ningún servidor' : '; solo los datos anónimos de comunidad (presencia, intenciones, coros) descritos arriba viajan a nuestro servidor'}. La página se aloja en <b>${hostingInfo().name}</b>${hostingInfo().owner ? `, servicio de <b>${hostingInfo().owner}</b>` : ''}; ${hostingInfo().name}, como cualquier proveedor de hosting, puede registrar los datos de acceso habituales (IP, fecha, navegador) para su operativa y seguridad, sin relación con el contenido que rezas.</p>
         <p><b>Estadísticas de visitas:</b> medimos cuántas personas visitan la web y qué páginas ven de forma <b>agregada y anónima</b> con <b>GoatCounter</b> (estadísticas de código abierto): no usa cookies, no guarda direcciones IP ni identificadores y no permite identificar a los usuarios. Sus datos se rigen por la política de GoatCounter (goatcounter.com).</p>
 
         <h3>Créditos</h3>
@@ -2599,13 +2608,13 @@
       p.appendChild(document.createTextNode(' No te rastreamos ni identificamos: solo contamos las visitas de forma anónima y agregada. Tus rezos, progreso y favoritos quedan guardados solo en tu dispositivo. La página la crea y mantiene '));
       p.appendChild(strong('Ramón Fandos'));
       p.appendChild(document.createTextNode(' y se aloja en '));
-      if (GH) {
-        p.appendChild(strong('GitHub Pages'));
+      const hi0 = hostingInfo();
+      p.appendChild(strong(hi0.name));
+      if (hi0.owner) {
         p.appendChild(document.createTextNode(' (servicio de '));
-        p.appendChild(strong('Microsoft'));
+        p.appendChild(strong(hi0.owner));
         p.appendChild(document.createTextNode(').'));
       } else {
-        p.appendChild(strong('Render'));
         p.appendChild(document.createTextNode('.'));
       }
 
@@ -2660,9 +2669,10 @@
         card.appendChild(h3);
         card.appendChild(mkP(b1, ' No te rastreamos ni identificamos: solo contamos visitas de forma anónima y agregada (GoatCounter).'));
         card.appendChild(mkP('Tus rezos, progreso y favoritos quedan guardados solo en tu dispositivo y funcionan sin conexión', GH ? mk(', y no se envían a ningún servidor.') : '.'));
-        card.appendChild(GH
-          ? mkP('La página la crea y mantiene ', mk('Ramón Fandos'), ' (fandosrj@gmail.com) y se aloja en ', mk('GitHub Pages'), ', servicio de ', mk('Microsoft'), '.')
-          : mkP('La página la crea y mantiene ', mk('Ramón Fandos'), ' (fandosrj@gmail.com) y se aloja en ', mk('Render'), '.'));
+        const hi1 = hostingInfo();
+        card.appendChild(hi1.owner
+          ? mkP('La página la crea y mantiene ', mk('Ramón Fandos'), ' (fandosrj@gmail.com) y se aloja en ', mk(hi1.name), ', servicio de ', mk(hi1.owner), '.')
+          : mkP('La página la crea y mantiene ', mk('Ramón Fandos'), ' (fandosrj@gmail.com) y se aloja en ', mk(hi1.name), '.'));
         const more = document.createElement('p');
         more.className = 'nci-more';
         const a = document.createElement('a');
