@@ -367,39 +367,129 @@
   }
 
   /* --------------------------- Leer en voz alta (español) --------------------------- */
+  // Lee TODO el oficio de principio a fin (verso inicial, antífonas, salmos,
+  // lecturas...). Si un salmo ya tiene una grabación propia, se pausa la voz
+  // sintética, se oye la grabación, y al terminar se reanuda la lectura.
   let speaking = false;
+  let speechQueue = [];
+  let speechIndex = 0;
+  let speechAudio = null;
+  let speechBtn = null;
+
+  function stripForSpeech(node) {
+    const clone = node.cloneNode(true);
+    clone.querySelectorAll('button, audio, .note-box-edit').forEach((n) => n.remove());
+    return (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function buildSpeechSegments(prayerEl) {
+    const segments = [];
+    let buffer = '';
+    function flush() {
+      const t = buffer.replace(/\s+/g, ' ').trim();
+      if (t) segments.push({ type: 'text', text: t });
+      buffer = '';
+    }
+    function walk(node) {
+      if (node.nodeType === Node.TEXT_NODE) { buffer += node.textContent; return; }
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      if (node.classList && node.classList.contains('psalm-block')) {
+        flush();
+        const refEl = node.querySelector('.psalm-ref');
+        const ref = refEl ? refEl.textContent.replace(/[★☆📝🎙️🎵]/gu, '').trim() : '';
+        const id = ref ? Favs.idFor(ref) + '-audio' : null;
+        const text = stripForSpeech(node);
+        if (text) segments.push({ type: 'block', id: id, text: text });
+        return;
+      }
+      for (let i = 0; i < node.childNodes.length; i++) walk(node.childNodes[i]);
+      buffer += ' ';
+    }
+    walk(prayerEl);
+    flush();
+    return segments;
+  }
+
   function wireSpeak() {
     const btn = document.querySelector('#as-speak');
     if (!btn) return;
+    speechBtn = btn;
     btn.addEventListener('click', () => {
       if (speaking) { stopSpeak(); return; }
-      const el = view.querySelector('.prayer');
-      const texto = el ? el.innerText || el.textContent : '';
-      if (!texto || !texto.trim()) return;
-      try {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(texto);
-        u.lang = 'es-ES';
-        u.rate = 0.95;
-        const voices = window.speechSynthesis.getVoices();
-        const v = voices.find((x) => (x.lang || '').toLowerCase().indexOf('es') === 0);
-        if (v) u.voice = v;
-        u.onend = () => { speaking = false; setSpeakIcon(btn, false); };
-        u.onerror = () => { speaking = false; setSpeakIcon(btn, false); };
-        window.speechSynthesis.speak(u);
-        speaking = true;
-        setSpeakIcon(btn, true);
-      } catch (e) { /* sin soporte de voz: se ignora */ }
+      startSpeak(btn);
     });
   }
+
+  async function startSpeak(btn) {
+    const el = view.querySelector('.prayer');
+    if (!el) return;
+    const segments = buildSpeechSegments(el);
+    if (!segments.length) return;
+    if (window.AudioNotes && AudioNotes.supported && AudioNotes.supported()) {
+      await Promise.all(segments.map(async (seg) => {
+        if (seg.type === 'block' && seg.id) {
+          try { seg.hasRecording = await AudioNotes.has(seg.id); } catch (e) { seg.hasRecording = false; }
+        }
+      }));
+    }
+    try { window.speechSynthesis.cancel(); } catch (e) { }
+    speechQueue = segments;
+    speechIndex = 0;
+    speaking = true;
+    setSpeakIcon(btn, true);
+    speakNext();
+  }
+
+  function speakNext() {
+    if (!speaking) return;
+    if (speechIndex >= speechQueue.length) { stopSpeak(); return; }
+    const seg = speechQueue[speechIndex++];
+    if (seg.type === 'block' && seg.hasRecording && seg.id) {
+      AudioNotes.get(seg.id).then((rec) => {
+        if (!speaking) return;
+        if (rec && rec.blob) {
+          const url = URL.createObjectURL(rec.blob);
+          const audio = new Audio(url);
+          speechAudio = audio;
+          audio.onended = () => { speechAudio = null; URL.revokeObjectURL(url); speakNext(); };
+          audio.onerror = () => { speechAudio = null; URL.revokeObjectURL(url); speakNext(); };
+          audio.play().catch(() => { speechAudio = null; URL.revokeObjectURL(url); speakNext(); });
+        } else {
+          speakText(seg.text);
+        }
+      }).catch(() => speakText(seg.text));
+      return;
+    }
+    if (!seg.text) { speakNext(); return; }
+    speakText(seg.text);
+  }
+
+  function speakText(text) {
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'es-ES';
+      u.rate = 0.95;
+      const voices = window.speechSynthesis.getVoices();
+      const v = voices.find((x) => (x.lang || '').toLowerCase().indexOf('es') === 0);
+      if (v) u.voice = v;
+      u.onend = () => speakNext();
+      u.onerror = () => speakNext();
+      window.speechSynthesis.speak(u);
+    } catch (e) { speakNext(); }
+  }
+
   function setSpeakIcon(btn, on) {
     btn.innerHTML = on ? '&#10074;&#10074;' : '&#128266;';
     btn.setAttribute('aria-label', on ? 'Detener la lectura en voz alta' : 'Leer esta hora en voz alta');
   }
+
   function stopSpeak() {
-    try { window.speechSynthesis.cancel(); } catch (e) { }
     speaking = false;
-    const btn = document.querySelector('#as-speak');
+    try { window.speechSynthesis.cancel(); } catch (e) { }
+    if (speechAudio) { try { speechAudio.pause(); } catch (e) { } speechAudio = null; }
+    speechQueue = [];
+    speechIndex = 0;
+    const btn = speechBtn || document.querySelector('#as-speak');
     if (btn) setSpeakIcon(btn, false);
   }
 
