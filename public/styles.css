@@ -88,7 +88,7 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px max(14px, env(safe-area-inset-left)) 10px
+  padding: calc(10px + env(safe-area-inset-top)) max(14px, env(safe-area-inset-left)) 10px
            max(14px, env(safe-area-inset-left));
   padding-right: max(14px, env(safe-area-inset-right));
   background: color-mix(in srgb, var(--bg) 88%, transparent);

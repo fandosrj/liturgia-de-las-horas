@@ -1,5 +1,12 @@
 {
   "appId": "es.ramonfandos.liturgiahoras",
   "appName": "Liturgia de las Horas",
-  "webDir": "public"
+  "webDir": "public",
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "DARK",
+      "backgroundColor": "#f6f2e9"
+    }
+  }
 }
