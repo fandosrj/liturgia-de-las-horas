@@ -359,11 +359,7 @@
     if (canSpeak) {
       html += `<button class="as-play" id="as-speak" title="Leer en voz alta" aria-label="Leer esta hora en voz alta">&#128266;</button>`;
     }
-    html += `<div class="as-speeds">`;
-    AS_SPEEDS.forEach((s, i) => {
-      html += `<button data-as="${i}" class="as-chip${i === as.speed ? ' active' : ''}" title="${s.k}" aria-label="Velocidad ${s.k}">${s.short}</button>`;
-    });
-    html += `</div></div>`;
+    html += `<button class="as-chip active" id="as-speed" title="Toca para cambiar la velocidad" aria-label="Velocidad: ${AS_SPEEDS[as.speed].k}. Toca para cambiar.">${AS_SPEEDS[as.speed].short}</button></div>`;
     const tabbar = document.querySelector('#tabbar');
     if (tabbar) tabbar.insertAdjacentHTML('beforeend', html);
     wireAs();
@@ -410,13 +406,14 @@
   function wireAs() {
     const play = document.querySelector('#as-play');
     if (play) play.addEventListener('click', () => asToggle());
-    document.querySelectorAll('.as-chip').forEach((c) => {
-      c.addEventListener('click', () => {
-        as.speed = parseInt(c.dataset.as, 10);
-        localStorage.setItem('liturgia.as.v1', String(as.speed));
-        document.querySelectorAll('.as-chip').forEach((x) => x.classList.toggle('active', x === c));
-        if (as.on) { asStop(); asStart(); }
-      });
+    const speedBtn = document.querySelector('#as-speed');
+    if (speedBtn) speedBtn.addEventListener('click', () => {
+      as.speed = (as.speed + 1) % AS_SPEEDS.length;
+      localStorage.setItem('liturgia.as.v1', String(as.speed));
+      const s = AS_SPEEDS[as.speed];
+      speedBtn.textContent = s.short;
+      speedBtn.setAttribute('aria-label', `Velocidad: ${s.k}. Toca para cambiar.`);
+      if (as.on) { asStop(); asStart(); }
     });
   }
 
@@ -1181,6 +1178,7 @@
           box.innerHTML = `<textarea placeholder="Tu nota sobre este salmo...">${Liturgy.esc(Notes.getNote(id))}</textarea>
             <div class="btn-row"><button class="btn primary note-save">Guardar</button><button class="btn note-cancel">Cerrar</button></div>`;
           blk.appendChild(box);
+          box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           const ta = box.querySelector('textarea');
           ta.focus();
           box.querySelector('.note-save').addEventListener('click', () => {
@@ -1199,6 +1197,26 @@
   let mediaRecorder = null;
   let mediaChunks = [];
   let recordingBtn = null;
+  let nativeRecording = false;
+
+  function base64ToBlob(b64, mime) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  async function refreshTopPlayer(blk, refEl, id) {
+    const old = blk.querySelector('.audio-player-top');
+    if (old) old.remove();
+    const rec = await AudioNotes.get(id);
+    if (!rec || !rec.blob) return;
+    const top = document.createElement('audio');
+    top.controls = true;
+    top.className = 'audio-player audio-player-top';
+    top.src = URL.createObjectURL(rec.blob);
+    refEl.insertAdjacentElement('afterend', top);
+  }
 
   function attachAudioNotes() {
     try {
@@ -1218,7 +1236,12 @@
         audioBtn.innerHTML = '&#127908;';
         refEl.appendChild(audioBtn);
 
-        AudioNotes.has(id).then((yes) => { if (yes) audioBtn.classList.add('on'); });
+        AudioNotes.has(id).then((yes) => {
+          if (yes) audioBtn.classList.add('on');
+          // Si el salmo ya tiene grabacion propia, se oye al principio, sin
+          // tener que abrir nada.
+          refreshTopPlayer(blk, refEl, id);
+        });
 
         let box = null;
         function closeBox() {
@@ -1252,6 +1275,7 @@
           }
           box.innerHTML = inner;
           blk.appendChild(box);
+          box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
           if (has) {
             const player = box.querySelector('.audio-player');
@@ -1260,16 +1284,55 @@
             box.querySelector('.audio-rerecord').addEventListener('click', async () => {
               await AudioNotes.remove(id);
               audioBtn.classList.remove('on');
+              await refreshTopPlayer(blk, refEl, id);
               renderBox();
             });
             box.querySelector('.audio-delete').addEventListener('click', async () => {
               await AudioNotes.remove(id);
               audioBtn.classList.remove('on');
+              await refreshTopPlayer(blk, refEl, id);
               closeBox();
             });
           } else {
             box.querySelector('.audio-record').addEventListener('click', async (ev) => {
               const btn = ev.currentTarget;
+              const VR = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.VoiceRecorder;
+
+              // App nativa: el WebView de Android no sabe grabar audio de
+              // fiar (getUserMedia falla con "Could not start audio source");
+              // usamos el complemento nativo en su lugar.
+              if (VR) {
+                if (nativeRecording) {
+                  try {
+                    const res = await VR.stopRecording();
+                    nativeRecording = false;
+                    const blob = base64ToBlob(res.value.recordDataBase64, res.value.mimeType || 'audio/aac');
+                    await AudioNotes.save(id, blob);
+                    audioBtn.classList.add('on');
+                    await refreshTopPlayer(blk, refEl, id);
+                    toast('Grabación guardada en este dispositivo.');
+                    renderBox();
+                  } catch (e) {
+                    toast('No se pudo guardar la grabación.');
+                  }
+                  return;
+                }
+                try {
+                  const has = await VR.hasAudioRecordingPermission();
+                  if (!has.value) {
+                    const req = await VR.requestAudioRecordingPermission();
+                    if (!req.value) { toast('Permiso de micrófono denegado.'); return; }
+                  }
+                  await VR.startRecording();
+                  nativeRecording = true;
+                  btn.textContent = '⏹ Detener';
+                } catch (e) {
+                  toast('No se pudo acceder al micrófono.');
+                }
+                return;
+              }
+
+              // Navegador normal: API web est&aacute;ndar.
               if (mediaRecorder && mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
                 return;
@@ -1287,6 +1350,7 @@
                   audioBtn.classList.add('on');
                   mediaRecorder = null;
                   recordingBtn = null;
+                  await refreshTopPlayer(blk, refEl, id);
                   toast('Grabación guardada en este dispositivo.');
                   renderBox();
                 };
@@ -1304,6 +1368,7 @@
               if (!file) return;
               await AudioNotes.save(id, file);
               audioBtn.classList.add('on');
+              await refreshTopPlayer(blk, refEl, id);
               toast('Audio guardado en este dispositivo.');
               renderBox();
             });
@@ -1312,6 +1377,7 @@
         }
 
         audioBtn.addEventListener('click', (ev) => {
+          console.log('[audio] click boton microfono, id=', id);
           ev.preventDefault(); ev.stopPropagation();
           if (box) { closeBox(); return; }
           renderBox();

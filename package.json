@@ -20,6 +20,7 @@
     "@capacitor/preferences": "^8.0.1",
     "@capacitor/status-bar": "^8.0.3",
     "breviarium": "^3.0.16",
+    "capacitor-voice-recorder": "^7.0.6",
     "express": "^4.22.2",
     "ws": "^8.21.3"
   },
