@@ -1288,7 +1288,7 @@
           box.className = 'note-box-edit';
           box.innerHTML = `<textarea placeholder="Tu nota sobre este salmo...">${Liturgy.esc(Notes.getNote(id))}</textarea>
             <div class="btn-row"><button class="btn primary note-save">Guardar</button><button class="btn note-cancel">Cerrar</button></div>`;
-          blk.appendChild(box);
+          refEl.insertAdjacentElement('afterend', box);
           box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           const ta = box.querySelector('textarea');
           ta.focus();
@@ -1385,7 +1385,7 @@
               <input type="file" accept="audio/*" class="audio-upload-input" style="display:none">`;
           }
           box.innerHTML = inner;
-          blk.appendChild(box);
+          refEl.insertAdjacentElement('afterend', box);
           box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
           if (has) {
