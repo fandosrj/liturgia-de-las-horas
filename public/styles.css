@@ -706,6 +706,30 @@ body {
 }
 .fav-s:hover { color: var(--accent); }
 .fav-s.on { color: var(--accent); }
+
+.note-s {
+  float: right;
+  border: none; background: transparent; cursor: pointer;
+  color: var(--ink-faint); font-size: 0.92rem; line-height: 1;
+  padding: 2px 4px; margin-left: 4px; vertical-align: middle;
+}
+.note-s:hover { color: var(--accent); }
+.note-s.on { color: var(--accent-ink); }
+.note-box-edit {
+  margin: 8px 0; padding: 10px; background: var(--bg-soft);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.note-box-edit textarea {
+  width: 100%; min-height: 70px; resize: vertical;
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px;
+  font-family: var(--sans); font-size: 0.9rem; color: var(--ink);
+  background: var(--surface); box-sizing: border-box;
+}
+.note-box-edit .btn-row { margin: 8px 0 0; }
+
+.vline { cursor: pointer; border-radius: 3px; }
+.vline:hover { background: var(--accent-soft); }
+.vline.underlined { text-decoration: underline; text-decoration-color: var(--rub); text-decoration-thickness: 2px; }
 .fav-s-inline {
   color: var(--accent); font-size: 1.05rem;
   background: var(--accent-soft); padding: 1px 5px; border-radius: 6px;

@@ -737,6 +737,7 @@
 
     asAppend();
     attachFavStars();
+    enhancePrayerText();
     if (!GH) loadIntentions(intoSlot('#intentions-slot'));
     if (!GH) attachNowOthers();
 
@@ -1087,6 +1088,67 @@
         refEl.appendChild(star);
       });
     } catch (e) { /* DOM muy sencillo en pruebas: los favoritos se omiten */ }
+  }
+
+  /* --------------- Subrayado de versos y notas personales --------------- */
+  function enhancePrayerText() {
+    try {
+      const texts = view.querySelectorAll('.prayer .text');
+      if (!texts || !texts.length) return;
+      texts.forEach((el) => {
+        if (el.dataset && el.dataset.enhanced) return;
+        const parts = el.innerHTML.split(/<br\s*\/?>/i);
+        el.innerHTML = parts.map((raw) => {
+          const plain = raw.replace(/<[^>]+>/g, '').trim();
+          if (!plain) return raw;
+          const on = Notes.isUnderlined(plain) ? ' underlined' : '';
+          return `<span class="vline${on}">${raw}</span>`;
+        }).join('<br>');
+        if (el.dataset) el.dataset.enhanced = '1';
+      });
+      view.querySelectorAll('.vline').forEach((sp) => {
+        sp.addEventListener('click', () => {
+          const on = Notes.toggleUnderline(sp.textContent);
+          sp.classList.toggle('underlined', on);
+        });
+      });
+
+      const blocks = view.querySelectorAll('.psalm-block');
+      blocks.forEach((blk) => {
+        const refEl = blk.querySelector('.psalm-ref');
+        if (!refEl) return;
+        const ref = (refEl.textContent || '').replace(/[★☆]/g, '').trim();
+        if (!ref) return;
+        const id = Favs.idFor(ref) + '-nota';
+
+        const noteBtn = document.createElement('button');
+        const hasNote = Notes.hasNote(id);
+        noteBtn.className = 'note-s' + (hasNote ? ' on' : '');
+        noteBtn.setAttribute('aria-label', 'Añadir o ver nota personal');
+        noteBtn.innerHTML = '&#128221;';
+        refEl.appendChild(noteBtn);
+
+        let box = null;
+        function closeBox() { if (box) { box.remove(); box = null; } }
+        function openBox() {
+          if (box) { closeBox(); return; }
+          box = document.createElement('div');
+          box.className = 'note-box-edit';
+          box.innerHTML = `<textarea placeholder="Tu nota sobre este salmo...">${Liturgy.esc(Notes.getNote(id))}</textarea>
+            <div class="btn-row"><button class="btn primary note-save">Guardar</button><button class="btn note-cancel">Cerrar</button></div>`;
+          blk.appendChild(box);
+          const ta = box.querySelector('textarea');
+          ta.focus();
+          box.querySelector('.note-save').addEventListener('click', () => {
+            Notes.setNote(id, ta.value);
+            noteBtn.classList.toggle('on', !!ta.value.trim());
+            closeBox();
+          });
+          box.querySelector('.note-cancel').addEventListener('click', closeBox);
+        }
+        noteBtn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); openBox(); });
+      });
+    } catch (e) { /* DOM muy sencillo en pruebas: se omite */ }
   }
 
   function personalView() {
@@ -1497,6 +1559,23 @@
       </div>
 
       <div class="card">
+        <div class="lbl" style="font-weight:700">Recordatorios</div>
+        <div class="desc" style="color:var(--ink-soft);font-family:var(--sans);font-size:.85rem;margin:6px 0 10px">
+          ${window.Capacitor ? 'Avisos discretos en el móvil, sin necesidad de conexión.' : 'Solo disponibles en la app instalada (no en el navegador).'}
+        </div>
+        ${remindersRows()}
+      </div>
+
+      <div class="card">
+        <div class="lbl" style="font-weight:700">Sin conexión</div>
+        <div class="desc" style="color:var(--ink-soft);font-family:var(--sans);font-size:.85rem;margin:6px 0 10px">
+          Todo el rezo (las siete horas, el salterio, el santoral, la Biblia) se calcula en tu propio
+          dispositivo: funciona igual sin cobertura, dentro de un templo o en el monte.
+        </div>
+        <div id="offline-status" style="font-family:var(--sans);font-size:.85rem;color:var(--ink-soft)">Comprobando…</div>
+      </div>
+
+      <div class="card">
         <div class="lbl" style="font-weight:700">Progreso de hoy</div>
         <div class="desc" style="color:var(--ink-soft);font-family:var(--sans);font-size:.85rem;margin:6px 0 10px">
           ${Store.prayedCount(currentDate)} de ${Liturgy.HOURS.length} horas rezadas hoy.
@@ -1537,6 +1616,106 @@
     if (rd) rd.addEventListener('change', () => Store.set({ showDailyReadings: rd.checked }));
     const rs = $('#btn-reset-today');
     if (rs) rs.addEventListener('click', () => { Store.resetPrayed(currentDate); settingsView(); });
+
+    wireReminders();
+    checkOfflineStatus();
+  }
+
+  /* ------------------------------ Recordatorios ------------------------------ */
+  const REM_HOURS = [
+    { id: 'laudes', name: 'Laudes', notifId: 9101, defaultTime: '08:00' },
+    { id: 'visperas', name: 'Vísperas', notifId: 9102, defaultTime: '19:00' },
+    { id: 'completas', name: 'Completas', notifId: 9103, defaultTime: '22:30' }
+  ];
+
+  function remindersGet() {
+    try {
+      const r = JSON.parse(localStorage.getItem('liturgia.reminders.v1') || '{}');
+      return r && typeof r === 'object' ? r : {};
+    } catch (e) { return {}; }
+  }
+  function remindersSet(cfg) {
+    try { localStorage.setItem('liturgia.reminders.v1', JSON.stringify(cfg)); } catch (e) { }
+  }
+
+  function remindersRows() {
+    const cfg = remindersGet();
+    return REM_HOURS.map((h) => {
+      const on = !!(cfg[h.id] && cfg[h.id].on);
+      const time = (cfg[h.id] && cfg[h.id].time) || h.defaultTime;
+      return `<div class="setting-row">
+        <div><div class="lbl">${h.name}</div></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="time" class="rem-time" data-rem="${h.id}" value="${time}" ${on ? '' : 'disabled'}>
+          <label class="switch"><input type="checkbox" class="rem-on" data-rem="${h.id}" ${on ? 'checked' : ''}><span class="sl"></span></label>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function wireReminders() {
+    document.querySelectorAll('.rem-on').forEach((chk) => {
+      chk.addEventListener('change', () => {
+        const id = chk.dataset.rem;
+        const cfg = remindersGet();
+        const timeInput = document.querySelector(`.rem-time[data-rem="${id}"]`);
+        cfg[id] = { on: chk.checked, time: (cfg[id] && cfg[id].time) || REM_HOURS.find((h) => h.id === id).defaultTime };
+        remindersSet(cfg);
+        if (timeInput) timeInput.disabled = !chk.checked;
+        applyReminders();
+      });
+    });
+    document.querySelectorAll('.rem-time').forEach((inp) => {
+      inp.addEventListener('change', () => {
+        const id = inp.dataset.rem;
+        const cfg = remindersGet();
+        if (!cfg[id]) cfg[id] = { on: true };
+        cfg[id].time = inp.value;
+        remindersSet(cfg);
+        applyReminders();
+      });
+    });
+  }
+
+  async function applyReminders() {
+    const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    if (!plugin) return; // solo en la app nativa
+    try {
+      const perm = await plugin.requestPermissions();
+      if (perm.display !== 'granted') return;
+      await plugin.cancel({ notifications: REM_HOURS.map((h) => ({ id: h.notifId })) });
+      const cfg = remindersGet();
+      const toSchedule = REM_HOURS.filter((h) => cfg[h.id] && cfg[h.id].on).map((h) => {
+        const [hh, mm] = ((cfg[h.id].time) || h.defaultTime).split(':').map((x) => parseInt(x, 10));
+        return {
+          id: h.notifId,
+          title: 'Liturgia de las Horas',
+          body: `Es hora de rezar ${h.name}.`,
+          schedule: { on: { hour: hh, minute: mm }, repeats: true },
+          sound: undefined
+        };
+      });
+      if (toSchedule.length) await plugin.schedule({ notifications: toSchedule });
+    } catch (e) { /* sin permiso o plugin no disponible: se ignora */ }
+  }
+
+  async function checkOfflineStatus() {
+    const el = $('#offline-status');
+    if (!el) return;
+    try {
+      if (!('caches' in window)) { el.textContent = 'Tu navegador no admite guardar la app sin conexión.'; return; }
+      const names = await caches.keys();
+      const name = names.find((n) => n.startsWith('liturgia-horas-'));
+      if (!name) { el.textContent = 'Descargando… vuelve a esta pantalla en unos segundos.'; return; }
+      const cache = await caches.open(name);
+      const keys = await cache.keys();
+      if (keys.length > 5) {
+        el.innerHTML = '&#10003; Todo descargado en este dispositivo.';
+        el.style.color = 'var(--accent-ink)';
+      } else {
+        el.textContent = 'Descargando… vuelve a esta pantalla en unos segundos.';
+      }
+    } catch (e) { el.textContent = 'No se pudo comprobar.'; }
   }
 
   /* ------------------------------ Acerca ------------------------------ */
@@ -2111,6 +2290,7 @@
       Community.on('chorevt', onChorevt);
     }
     document.addEventListener('visibilitychange', () => { if (document.hidden) asStop(); });
+    applyReminders();
     route();
   }
 
