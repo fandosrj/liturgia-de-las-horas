@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Liturgia de las Horas</string>
+    <string name="title_activity_main">Liturgia de las Horas</string>
+    <string name="package_name">es.ramonfandos.liturgiahoras</string>
+    <string name="custom_url_scheme">es.ramonfandos.liturgiahoras</string>
+</resources>

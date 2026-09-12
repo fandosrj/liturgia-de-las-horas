@@ -13,8 +13,14 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "breviarium": "^3.0.16",
     "express": "^4.22.2",
     "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.2"
   }
 }

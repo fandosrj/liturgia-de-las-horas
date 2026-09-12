@@ -22,3 +22,13 @@ dist-github/
 # Editor / SO
 .vscode/
 .idea/
+
+# Android / Capacitor (app nativa)
+android/local.properties
+android/.gradle/
+android/build/
+android/app/build/
+android/captures/
+android/.cxx/
+*.keystore
+*.jks
