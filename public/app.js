@@ -1740,7 +1740,7 @@
         <h3>Aviso legal y política de privacidad</h3>
         <p><b>Titular:</b> Ramón Fandos.<br>
         <b>Contacto:</b> fandosrj@gmail.com</p>
-        <p>Esta versión web <b>no crea cuentas</b>, <b>no utiliza cookies en absoluto</b> (ni propias, ni de terceros, ni trazadores) y <b>no envía datos personales a ningún servidor</b>: el rezo, el progreso, los favoritos y los textos que importes se guardan únicamente en tu dispositivo. La página se aloja en <b>GitHub Pages</b>, servicio de <b>Microsoft</b>; GitHub, como cualquier proveedor de hosting, puede registrar los datos de acceso habituales (IP, fecha, navegador) para su operativa y seguridad, sin relación con el contenido que rezas.</p>
+        <p>Esta versión web <b>no crea cuentas</b> ni <b>utiliza cookies de rastreo</b> (ni propias, ni de terceros): el rezo, el progreso, los favoritos y los textos que importes se guardan únicamente en tu dispositivo${GH ? ', y no se envían a ningún servidor' : '; solo los datos anónimos de comunidad (presencia, intenciones, coros) descritos arriba viajan a nuestro servidor'}. La página se aloja en <b>${GH ? 'GitHub Pages</b>, servicio de <b>Microsoft' : 'Render'}</b>; ${GH ? 'GitHub' : 'Render'}, como cualquier proveedor de hosting, puede registrar los datos de acceso habituales (IP, fecha, navegador) para su operativa y seguridad, sin relación con el contenido que rezas.</p>
         <p><b>Estadísticas de visitas:</b> medimos cuántas personas visitan la web y qué páginas ven de forma <b>agregada y anónima</b> con <b>GoatCounter</b> (estadísticas de código abierto): no usa cookies, no guarda direcciones IP ni identificadores y no permite identificar a los usuarios. Sus datos se rigen por la política de GoatCounter (goatcounter.com).</p>
 
         <h3>Créditos</h3>
@@ -2180,10 +2180,15 @@
       p.appendChild(document.createTextNode(' No te rastreamos ni identificamos: solo contamos las visitas de forma anónima y agregada. Tus rezos, progreso y favoritos quedan guardados solo en tu dispositivo. La página la crea y mantiene '));
       p.appendChild(strong('Ramón Fandos'));
       p.appendChild(document.createTextNode(' y se aloja en '));
-      p.appendChild(strong('GitHub Pages'));
-      p.appendChild(document.createTextNode(' (servicio de '));
-      p.appendChild(strong('Microsoft'));
-      p.appendChild(document.createTextNode(').'));
+      if (GH) {
+        p.appendChild(strong('GitHub Pages'));
+        p.appendChild(document.createTextNode(' (servicio de '));
+        p.appendChild(strong('Microsoft'));
+        p.appendChild(document.createTextNode(').'));
+      } else {
+        p.appendChild(strong('Render'));
+        p.appendChild(document.createTextNode('.'));
+      }
 
       const infoBtn = document.createElement('button');
       infoBtn.type = 'button';
@@ -2235,8 +2240,10 @@
         card.appendChild(x);
         card.appendChild(h3);
         card.appendChild(mkP(b1, ' No te rastreamos ni identificamos: solo contamos visitas de forma anónima y agregada (GoatCounter).'));
-        card.appendChild(mkP('Tus rezos, progreso y favoritos quedan guardados solo en tu dispositivo, funcionan sin conexión y ', mk('no se envían a ningún servidor'), '.'));
-        card.appendChild(mkP('La página la crea y mantiene ', mk('Ramón Fandos'), ' (fandosrj@gmail.com) y se aloja en ', mk('GitHub Pages'), ', servicio de ', mk('Microsoft'), '.'));
+        card.appendChild(mkP('Tus rezos, progreso y favoritos quedan guardados solo en tu dispositivo y funcionan sin conexión', GH ? mk(', y no se envían a ningún servidor.') : '.'));
+        card.appendChild(GH
+          ? mkP('La página la crea y mantiene ', mk('Ramón Fandos'), ' (fandosrj@gmail.com) y se aloja en ', mk('GitHub Pages'), ', servicio de ', mk('Microsoft'), '.')
+          : mkP('La página la crea y mantiene ', mk('Ramón Fandos'), ' (fandosrj@gmail.com) y se aloja en ', mk('Render'), '.'));
         const more = document.createElement('p');
         more.className = 'nci-more';
         const a = document.createElement('a');
