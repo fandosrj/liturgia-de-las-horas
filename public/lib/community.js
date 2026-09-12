@@ -8,7 +8,11 @@
   'use strict';
 
   // Subruta de despliegue ('' en la raíz; p. ej. '/liturgiahoras' tras reverse proxy).
-  const BASE = (window.LH_BASE || '').replace(/\/+$/, '');
+  // En la app nativa (Capacitor) los archivos van empaquetados localmente, sin
+  // servidor propio: la comunidad habla directamente con el servidor remoto.
+  const NATIVE_REMOTE = 'https://liturgia-horas.onrender.com';
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const BASE = isNative ? NATIVE_REMOTE : (window.LH_BASE || '').replace(/\/+$/, '');
 
   const Li = window.Community = {};
 
@@ -133,7 +137,10 @@
   function ensureSocket() {
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
     try {
-      socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + BASE + '/ws');
+      const wsUrl = isNative
+        ? NATIVE_REMOTE.replace(/^http/, 'ws') + '/ws'
+        : (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + BASE + '/ws';
+      socket = new WebSocket(wsUrl);
     } catch (e) { return; }
     socket.onmessage = (ev) => {
       try {

@@ -2,10 +2,6 @@
   "appId": "es.ramonfandos.liturgiahoras",
   "appName": "Liturgia de las Horas",
   "webDir": "public",
-  "server": {
-    "url": "https://liturgia-horas.onrender.com",
-    "cleartext": false
-  },
   "plugins": {
     "StatusBar": {
       "overlaysWebView": false,

@@ -37,7 +37,16 @@ app.use(BASE + '/', express.static(PUBLIC, {
   }
 }));
 
-app.use(BASE + '/api', (req, res) => {
+app.use(BASE + '/api', (req, res, next) => {
+  // CORS: permite que la app nativa (Capacitor, archivos empaquetados
+  // localmente, sin origen propio) hable con este servidor de comunidad.
+  // Datos anonimos por deviceId, sin cookies ni sesion: seguro abrirlo.
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+  next();
+}, (req, res) => {
   community.handle(req, res).catch((e) => {
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
