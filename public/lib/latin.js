@@ -260,6 +260,7 @@ window.LatinaRezado = (() => {
       u.volume = 0.9;
       const v = vozLatin();
       if (v) u.voice = v;
+      if (opciones.onend) { u.onend = opciones.onend; u.onerror = opciones.onend; }
       window.speechSynthesis.speak(u);
       return true;
     } catch (e) { return false; }

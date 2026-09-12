@@ -143,6 +143,9 @@ body {
 
 /* ------------------------------- App ---------------------------------- */
 .app { padding: 18px max(14px, env(safe-area-inset-left)) 96px max(14px, env(safe-area-inset-right)); }
+/* Con el mini reproductor de lectura activo, el bloque fijo es más alto:
+   deja sitio de sobra para que no tape el final del texto. */
+.app:has(~ #bottom-dock .autoscroll) { padding-bottom: 156px; }
 .view { max-width: 600px; margin: 0 auto; }
 .hidden { display: none !important; }
 
@@ -404,18 +407,25 @@ body {
 .legal code { background: var(--bg-soft); padding: 1px 6px; border-radius: 6px; font-size: 0.85em; }
 
 /* ------------------------------ Tabbar -------------------------------- */
-.tabbar {
+/* Pestañas de navegación y "mini reproductor" de lectura apilados en un
+   único bloque fijo (como el mini-player de Spotify/Podcasts sobre su
+   barra de pestañas): cada fila tiene su propio sitio, nunca se amontonan. */
+.bottom-dock {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
   max-width: 760px; margin: 0 auto;
+  display: flex; flex-direction: column;
+}
+.as-dock:empty { display: none; }
+.tabbar {
   display: flex; align-items: center; background: var(--surface);
   border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
 }
 .tabbar .tab {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 8px 4px 7px; color: var(--ink-faint); text-decoration: none;
-  font-family: var(--sans); font-size: 0.68rem;
-  min-width: 0;
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 9px 4px 8px; color: var(--ink-faint); text-decoration: none;
+  font-family: var(--sans); font-size: 0.7rem;
+  min-width: 0; min-height: 48px;
 }
 .tabbar .tab.active { color: var(--accent-ink); }
 .tabbar .tab.active::before {
@@ -424,19 +434,6 @@ body {
 }
 .tabbar .tab { position: relative; }
 
-/* Cuando el reproductor de autoscroll esta activo, comparte la misma fila:
-   las pestanas se comprimen a solo icono para dejarle sitio. */
-.tabbar:has(.autoscroll) .tab-label {
-  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);
-}
-.tabbar:has(.autoscroll) .tab { padding: 8px 2px 7px; }
-.tabbar .autoscroll {
-  flex: 0 0 auto;
-  display: flex; align-items: center; gap: 6px;
-  padding: 6px 0 6px 10px; margin-left: 4px;
-  border-left: 1px solid var(--line);
-}
-
 /* ---------------------------- Responsive ------------------------------ */
 @media (min-width: 760px) {
   .drawer-panel { width: 340px; }
@@ -444,7 +441,7 @@ body {
 }
 
 @media print {
-  .topbar, .drawer, .tabbar, .prayer-toolbar .icon-btn, .date-nav, .done-bar { display: none; }
+  .topbar, .drawer, .bottom-dock, .prayer-toolbar .icon-btn, .date-nav, .done-bar { display: none; }
   body { background: #fff; }
   .app { padding: 0; }
 }
@@ -678,16 +675,27 @@ body {
 }
 .nci-ok:hover { filter: brightness(1.06); }
 
-/* Auto-scroll de lectura: vive dentro de la tabbar (ver regla .tabbar .autoscroll arriba) */
-.as-play {
-  width: 30px; height: 30px; border-radius: 50%; border: none; cursor: pointer;
-  background: var(--accent); color: var(--accent-ink); font-size: 0.75rem;
+/* Auto-scroll y lectura en voz alta: mini reproductor sobre la barra de
+   pestañas (ver .bottom-dock / .as-dock arriba). */
+.autoscroll {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--surface-2); border-top: 1px solid var(--line);
+  padding: 8px 14px;
+}
+.as-label {
+  font-family: var(--sans); font-size: 0.78rem; font-weight: 600; color: var(--ink-soft);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.as-controls { display: flex; align-items: center; gap: 8px; flex: none; }
+.as-btn {
+  width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--accent); color: var(--accent-ink); font-size: 1rem;
   display: flex; align-items: center; justify-content: center;
   flex: none;
 }
 .as-chip {
-  padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line);
-  background: var(--surface2); color: var(--ink); font-family: var(--sans); font-size: 0.66rem; cursor: pointer;
+  padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); min-height: 40px;
+  background: var(--surface); color: var(--ink); font-family: var(--sans); font-size: 0.74rem; font-weight: 600; cursor: pointer;
   white-space: nowrap;
 }
 .as-chip.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }

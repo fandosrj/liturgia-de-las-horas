@@ -348,20 +348,27 @@
   ];
   const as = { raf: null, speed: 1, on: false, acc: 0 };
 
+  // La barra de lectura vive en su propio "mini reproductor" encima de la
+  // pestaña inferior (como Spotify/Podcasts), en vez de compartir su fila:
+  // así ni las pestañas ni los controles de lectura quedan amontonados.
   function asAppend() {
-    const existing = document.querySelector('.autoscroll');
-    if (existing) existing.remove();
+    const dock = document.querySelector('#as-dock');
+    if (!dock) return;
+    dock.innerHTML = '';
     const saved = parseInt(localStorage.getItem('liturgia.as.v1') || '1', 10);
     if (saved >= 0 && saved < AS_SPEEDS.length) as.speed = saved;
     const canSpeak = !!view.querySelector('.prayer') && ('speechSynthesis' in window);
     let html = `<div class="autoscroll" id="autoscroll">
-      <button class="as-play" id="as-play" title="Reproducir / pausar" aria-label="Reproducir o pausar el autoscroll">&#9654;</button>`;
+      <span class="as-label">Lectura guiada</span>
+      <div class="as-controls">
+        <button class="as-btn" id="as-play" title="Reproducir / pausar" aria-label="Reproducir o pausar el autoscroll">&#9654;</button>`;
     if (canSpeak) {
-      html += `<button class="as-play" id="as-speak" title="Leer en voz alta" aria-label="Leer esta hora en voz alta">&#128266;</button>`;
+      html += `<button class="as-btn" id="as-speak" title="Leer en voz alta" aria-label="Leer esta hora en voz alta">&#128266;</button>`;
     }
-    html += `<button class="as-chip active" id="as-speed" title="Toca para cambiar la velocidad" aria-label="Velocidad: ${AS_SPEEDS[as.speed].k}. Toca para cambiar.">${AS_SPEEDS[as.speed].short}</button></div>`;
-    const tabbar = document.querySelector('#tabbar');
-    if (tabbar) tabbar.insertAdjacentHTML('beforeend', html);
+    html += `<button class="as-chip active" id="as-speed" title="Toca para cambiar la velocidad" aria-label="Velocidad: ${AS_SPEEDS[as.speed].k}. Toca para cambiar.">${AS_SPEEDS[as.speed].short}</button>
+      </div>
+    </div>`;
+    dock.innerHTML = html;
     wireAs();
     if (canSpeak) wireSpeak();
   }
@@ -1671,6 +1678,9 @@
     html += `<div class="card">
       <p class="text">Las oraciones que la Iglesia ha rezado en latín durante siglos, con el español al lado: cada línea en su idioma, sincronizadas. Puedes escuchar la lectura <b>suave</b> — lenta y pausada — con la voz en latín de tu dispositivo.</p>
       <label class="pick"><input type="checkbox" id="lat-soft" ${soft ? 'checked' : ''}> Pronunciación suave <span class="comm-sub">(lectura lenta y calmada)</span></label>
+      <div class="btn-row" style="margin-top:10px;margin-bottom:0">
+        <button class="btn primary" id="lat-play-all">&#9654; Rezar todo seguido</button>
+      </div>
     </div>`;
     for (const o of ores) {
       html += `<div class="card">
@@ -1697,6 +1707,42 @@
     const note = view.querySelector('#lat-voice-note');
     const supported = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
     if (!supported && note) note.style.display = '';
+
+    const ores = (window.LatinaRezado && LatinaRezado.oraciones) || [];
+    const btnById = {};
+    view.querySelectorAll('[data-lat-play]').forEach((b) => { btnById[b.dataset.latPlay] = b; });
+    const master = view.querySelector('#lat-play-all');
+    let seqOn = false;
+    let seqIndex = -1;
+
+    function playOne(o, btn, thenFn) {
+      const suave = !soft || soft.checked;
+      const ok = LatinaRezado.leer(o.versos.map((v) => v[0]).join(' '), {
+        suave,
+        onend: () => {
+          setPlay(btn, true);
+          if (latinPlaying === btn) latinPlaying = null;
+          if (thenFn) thenFn();
+        }
+      });
+      if (ok) { setPlay(btn, false); latinPlaying = btn; }
+      return ok;
+    }
+
+    function stopSequence() {
+      seqOn = false;
+      seqIndex = -1;
+      if (master) setMasterPlay(master, true);
+    }
+
+    function playNextInSequence() {
+      seqIndex++;
+      if (seqIndex >= ores.length) { stopSequence(); return; }
+      const o = ores[seqIndex];
+      const btn = btnById[o.id];
+      if (!btn || !playOne(o, btn, playNextInSequence)) { stopSequence(); }
+    }
+
     view.querySelectorAll('[data-lat-play]').forEach((b) => {
       b.addEventListener('click', () => {
         const o = ((window.LatinaRezado || {}).oracionById || (() => null)).call(window.LatinaRezado, b.dataset.latPlay);
@@ -1705,6 +1751,7 @@
           if (note) note.textContent = 'Tu dispositivo no tiene lectura por voz (speechSynthesis).';
           return;
         }
+        if (seqOn) stopSequence();
         if (latinPlaying === b) {
           LatinaRezado.detener();
           setPlay(b, true);
@@ -1715,17 +1762,44 @@
           LatinaRezado.detener();
           setPlay(latinPlaying, true);
         }
-        const suave = !soft || soft.checked;
-        const ok = LatinaRezado.leer(o.versos.map((v) => v[0]).join(' '), { suave });
-        if (ok) { setPlay(b, false); latinPlaying = b; }
+        playOne(o, b, null);
       });
     });
+
+    if (master) {
+      master.addEventListener('click', () => {
+        if (!supported) {
+          if (note) note.textContent = 'Tu dispositivo no tiene lectura por voz (speechSynthesis).';
+          return;
+        }
+        if (seqOn) {
+          LatinaRezado.detener();
+          if (latinPlaying) setPlay(latinPlaying, true);
+          latinPlaying = null;
+          stopSequence();
+          return;
+        }
+        if (latinPlaying) {
+          LatinaRezado.detener();
+          setPlay(latinPlaying, true);
+          latinPlaying = null;
+        }
+        seqOn = true;
+        seqIndex = -1;
+        setMasterPlay(master, false);
+        playNextInSequence();
+      });
+    }
   }
 
   function setPlay(btn, play) {
     if (!btn) return;
     btn.innerHTML = play ? '&#9654;' : '&#10074;&#10074;';
     btn.setAttribute('aria-label', play ? 'Escuchar este rezo en latín' : 'Detener la lectura de este rezo');
+  }
+  function setMasterPlay(btn, play) {
+    btn.innerHTML = play ? '&#9654; Rezar todo seguido' : '&#10074;&#10074; Detener';
+    btn.setAttribute('aria-label', play ? 'Rezar todas las oraciones en latín, seguidas' : 'Detener la lectura');
   }
   function bibliaView() {
     const bible = Store.getBible();
