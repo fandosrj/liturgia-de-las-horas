@@ -675,8 +675,10 @@ body {
 }
 .nci-ok:hover { filter: brightness(1.06); }
 
-/* Auto-scroll y lectura en voz alta: mini reproductor sobre la barra de
-   pestañas (ver .bottom-dock / .as-dock arriba). */
+/* Velocidad del scroll automático: chip flotante sobre la barra de
+   pestañas, solo en pantallas de lectura (ver .bottom-dock / .as-dock
+   arriba). Reproducir y escuchar en voz alta viven en el pie: Scroll y
+   Audio (ver .tab-action más abajo). */
 .autoscroll {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   background: var(--surface-2); border-top: 1px solid var(--line);
@@ -686,19 +688,24 @@ body {
   font-family: var(--sans); font-size: 0.78rem; font-weight: 600; color: var(--ink-soft);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.as-controls { display: flex; align-items: center; gap: 8px; flex: none; }
-.as-btn {
-  width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer;
-  background: var(--accent); color: var(--accent-ink); font-size: 1rem;
-  display: flex; align-items: center; justify-content: center;
-  flex: none;
-}
 .as-chip {
   padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); min-height: 40px;
   background: var(--surface); color: var(--ink); font-family: var(--sans); font-size: 0.74rem; font-weight: 600; cursor: pointer;
-  white-space: nowrap;
+  white-space: nowrap; flex: none;
 }
 .as-chip.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+/* Scroll y Audio: botones de acción fijos en el pie (no navegan; activan o
+   paran el scroll automático / la lectura en voz alta de la pantalla
+   actual). Mismo aspecto que las pestañas de navegación. */
+.tab-action {
+  background: none; border: none; font: inherit; margin: 0; cursor: pointer;
+}
+.tab-action.on { color: var(--accent-ink); }
+.tab-action.on::before {
+  content: ""; position: absolute; top: 0; left: 22%; right: 22%; height: 3px;
+  background: var(--accent); border-radius: 0 0 3px 3px;
+}
 
 @media print {
   .autoscroll, .toast, .now-others { display: none !important; }

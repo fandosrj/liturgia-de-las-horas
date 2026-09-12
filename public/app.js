@@ -348,29 +348,19 @@
   ];
   const as = { raf: null, speed: 1, on: false, acc: 0 };
 
-  // La barra de lectura vive en su propio "mini reproductor" encima de la
-  // pestaña inferior (como Spotify/Podcasts), en vez de compartir su fila:
-  // así ni las pestañas ni los controles de lectura quedan amontonados.
+  // Reproducir y escuchar en voz alta viven como botones fijos del pie
+  // (Scroll y Audio); aquí solo queda, flotando encima del pie, el chip de
+  // velocidad del scroll —contextual a la pantalla de lectura actual—.
   function asAppend() {
     const dock = document.querySelector('#as-dock');
     if (!dock) return;
-    dock.innerHTML = '';
     const saved = parseInt(localStorage.getItem('liturgia.as.v1') || '1', 10);
     if (saved >= 0 && saved < AS_SPEEDS.length) as.speed = saved;
-    const canSpeak = !!view.querySelector('.prayer') && ('speechSynthesis' in window);
-    let html = `<div class="autoscroll" id="autoscroll">
-      <span class="as-label">Lectura guiada</span>
-      <div class="as-controls">
-        <button class="as-btn" id="as-play" title="Reproducir / pausar" aria-label="Reproducir o pausar el autoscroll">&#9654;</button>`;
-    if (canSpeak) {
-      html += `<button class="as-btn" id="as-speak" title="Leer en voz alta" aria-label="Leer esta hora en voz alta">&#128266;</button>`;
-    }
-    html += `<button class="as-chip active" id="as-speed" title="Toca para cambiar la velocidad" aria-label="Velocidad: ${AS_SPEEDS[as.speed].k}. Toca para cambiar.">${AS_SPEEDS[as.speed].short}</button>
-      </div>
+    dock.innerHTML = `<div class="autoscroll" id="autoscroll">
+      <span class="as-label">Velocidad del scroll</span>
+      <button class="as-chip active" id="as-speed" title="Toca para cambiar la velocidad" aria-label="Velocidad: ${AS_SPEEDS[as.speed].k}. Toca para cambiar.">${AS_SPEEDS[as.speed].short}</button>
     </div>`;
-    dock.innerHTML = html;
     wireAs();
-    if (canSpeak) wireSpeak();
   }
 
   /* --------------------------- Leer en voz alta (español) --------------------------- */
@@ -417,13 +407,23 @@
     return segments;
   }
 
-  function wireSpeak() {
-    const btn = document.querySelector('#as-speak');
+  // El botón "Audio" del pie es fijo y vale para cualquier pantalla: si hay
+  // un oficio abierto (.prayer) lee en español; si es el rezo en latín,
+  // dispara su propia lectura seguida; si no hay nada que leer, avisa.
+  function wireAudioTab() {
+    const btn = document.querySelector('#tab-audio');
     if (!btn) return;
     speechBtn = btn;
     btn.addEventListener('click', () => {
       if (speaking) { stopSpeak(); return; }
-      startSpeak(btn);
+      if (view.querySelector('.prayer')) {
+        if (!('speechSynthesis' in window)) { toast('Tu dispositivo no tiene lectura por voz.'); return; }
+        startSpeak(btn);
+        return;
+      }
+      const latAll = document.querySelector('#lat-play-all');
+      if (latAll) { latAll.click(); return; }
+      toast('Abre una hora de rezo para escucharla en voz alta.');
     });
   }
 
@@ -486,8 +486,10 @@
   }
 
   function setSpeakIcon(btn, on) {
-    btn.innerHTML = on ? '&#10074;&#10074;' : '&#128266;';
-    btn.setAttribute('aria-label', on ? 'Detener la lectura en voz alta' : 'Leer esta hora en voz alta');
+    btn.classList.toggle('on', on);
+    const label = btn.querySelector('.tab-label');
+    if (label) label.textContent = on ? 'Detener' : 'Audio';
+    btn.setAttribute('aria-label', on ? 'Detener la lectura en voz alta' : 'Escuchar esta hora en voz alta');
   }
 
   function stopSpeak() {
@@ -496,13 +498,11 @@
     if (speechAudio) { try { speechAudio.pause(); } catch (e) { } speechAudio = null; }
     speechQueue = [];
     speechIndex = 0;
-    const btn = speechBtn || document.querySelector('#as-speak');
+    const btn = speechBtn || document.querySelector('#tab-audio');
     if (btn) setSpeakIcon(btn, false);
   }
 
   function wireAs() {
-    const play = document.querySelector('#as-play');
-    if (play) play.addEventListener('click', () => asToggle());
     const speedBtn = document.querySelector('#as-speed');
     if (speedBtn) speedBtn.addEventListener('click', () => {
       as.speed = (as.speed + 1) % AS_SPEEDS.length;
@@ -514,17 +514,32 @@
     });
   }
 
+  // El botón "Scroll" del pie es fijo: arranca o para el scroll automático
+  // de la pantalla actual, sea la que sea.
+  function wireScrollTab() {
+    const btn = document.querySelector('#tab-scroll');
+    if (btn) btn.addEventListener('click', () => asToggle());
+  }
+
+  function setScrollIcon(on) {
+    const btn = document.querySelector('#tab-scroll');
+    if (!btn) return;
+    btn.classList.toggle('on', on);
+    const label = btn.querySelector('.tab-label');
+    if (label) label.textContent = on ? 'Detener' : 'Scroll';
+    btn.setAttribute('aria-label', on ? 'Detener el scroll automático' : 'Activar el scroll automático de esta lectura');
+  }
+
   function asStart() {
     if (as.on) return;
     as.on = true;
     as.acc = 0;
-    const play = document.querySelector('#as-play');
-    if (play) play.innerHTML = '&#10074;&#10074;';
+    setScrollIcon(true);
     const sp = AS_SPEEDS[as.speed];
     if (typeof requestAnimationFrame === 'undefined') {
       as.timer = setInterval(() => {
         const max = document.documentElement.scrollHeight - window.innerHeight;
-        if (window.scrollY >= max - 4) { asStop(); const p = document.querySelector('#as-play'); if (p) p.innerHTML = '&#10004;'; return; }
+        if (window.scrollY >= max - 4) { asStop(); return; }
         window.scrollBy(0, sp.v);
       }, 700);
       return;
@@ -535,7 +550,7 @@
       const dt = Math.min((now - last) / 1000, 0.1);
       last = now;
       const max = document.documentElement.scrollHeight - window.innerHeight;
-      if (window.scrollY >= max - 2) { as.raf = null; asStop(); const p = document.querySelector('#as-play'); if (p) p.innerHTML = '&#10004;'; return; }
+      if (window.scrollY >= max - 2) { as.raf = null; asStop(); return; }
       as.acc += sp.v * dt;
       const whole = Math.floor(as.acc);
       if (whole > 0) { window.scrollBy(0, whole); as.acc -= whole; }
@@ -549,8 +564,7 @@
     if (as.raf && typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(as.raf);
     as.raf = null;
     if (as.timer) { clearInterval(as.timer); as.timer = null; }
-    const play = document.querySelector('#as-play');
-    if (play) play.innerHTML = '&#9654;';
+    setScrollIcon(false);
   }
 
   function asToggle() { as.on ? asStop() : asStart(); }
@@ -2703,6 +2717,8 @@
     applySettings();
     showNoCookiesBanner();
     initEvents();
+    wireScrollTab();
+    wireAudioTab();
     setTab();
     registerSW();
     if (!(window.Breviarium || {}).default && !window.Breviarium) {
