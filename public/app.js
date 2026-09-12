@@ -781,6 +781,7 @@
     asAppend();
     attachFavStars();
     enhancePrayerText();
+    attachAudioNotes();
     if (!GH) loadIntentions(intoSlot('#intentions-slot'));
     if (!GH) attachNowOthers();
 
@@ -1190,6 +1191,131 @@
           box.querySelector('.note-cancel').addEventListener('click', closeBox);
         }
         noteBtn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); openBox(); });
+      });
+    } catch (e) { /* DOM muy sencillo en pruebas: se omite */ }
+  }
+
+  /* --------- Grabar con tu voz o subir un MP3 (por salmo) --------- */
+  let mediaRecorder = null;
+  let mediaChunks = [];
+  let recordingBtn = null;
+
+  function attachAudioNotes() {
+    try {
+      if (!window.AudioNotes || !AudioNotes.supported()) return;
+      const blocks = view.querySelectorAll('.psalm-block');
+      if (!blocks || !blocks.length) return;
+      blocks.forEach((blk) => {
+        const refEl = blk.querySelector('.psalm-ref');
+        if (!refEl) return;
+        const ref = (refEl.textContent || '').replace(/[★☆📝🎙️🎵]/gu, '').trim();
+        if (!ref) return;
+        const id = Favs.idFor(ref) + '-audio';
+
+        const audioBtn = document.createElement('button');
+        audioBtn.className = 'audio-s';
+        audioBtn.setAttribute('aria-label', 'Grabar tu voz o subir un audio de este salmo');
+        audioBtn.innerHTML = '&#127908;';
+        refEl.appendChild(audioBtn);
+
+        AudioNotes.has(id).then((yes) => { if (yes) audioBtn.classList.add('on'); });
+
+        let box = null;
+        function closeBox() {
+          if (box) { box.remove(); box = null; }
+          if (mediaRecorder && mediaRecorder.state === 'recording' && recordingBtn === audioBtn) {
+            mediaRecorder.stop();
+          }
+        }
+
+        async function renderBox() {
+          if (box) box.remove();
+          box = document.createElement('div');
+          box.className = 'note-box-edit';
+          const has = await AudioNotes.has(id);
+          let inner = '';
+          if (has) {
+            inner += `<audio controls class="audio-player" style="width:100%"></audio>
+              <div class="btn-row">
+                <button class="btn audio-rerecord">Regrabar</button>
+                <button class="btn audio-delete">Eliminar</button>
+                <button class="btn note-cancel">Cerrar</button>
+              </div>`;
+          } else {
+            inner += `<div class="desc" style="font-family:var(--sans);font-size:.85rem;color:var(--ink-soft);margin-bottom:8px">Graba este salmo con tu propia voz, o sube un archivo de audio ya grabado.</div>
+              <div class="btn-row">
+                <button class="btn primary audio-record">&#127908; Grabar</button>
+                <button class="btn audio-upload-btn">&#128193; Subir audio</button>
+                <button class="btn note-cancel">Cerrar</button>
+              </div>
+              <input type="file" accept="audio/*" class="audio-upload-input" style="display:none">`;
+          }
+          box.innerHTML = inner;
+          blk.appendChild(box);
+
+          if (has) {
+            const player = box.querySelector('.audio-player');
+            const rec = await AudioNotes.get(id);
+            if (rec && rec.blob) player.src = URL.createObjectURL(rec.blob);
+            box.querySelector('.audio-rerecord').addEventListener('click', async () => {
+              await AudioNotes.remove(id);
+              audioBtn.classList.remove('on');
+              renderBox();
+            });
+            box.querySelector('.audio-delete').addEventListener('click', async () => {
+              await AudioNotes.remove(id);
+              audioBtn.classList.remove('on');
+              closeBox();
+            });
+          } else {
+            box.querySelector('.audio-record').addEventListener('click', async (ev) => {
+              const btn = ev.currentTarget;
+              if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                return;
+              }
+              try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaChunks = [];
+                mediaRecorder = new MediaRecorder(stream);
+                recordingBtn = audioBtn;
+                mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) mediaChunks.push(e.data); };
+                mediaRecorder.onstop = async () => {
+                  stream.getTracks().forEach((t) => t.stop());
+                  const blob = new Blob(mediaChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+                  await AudioNotes.save(id, blob);
+                  audioBtn.classList.add('on');
+                  mediaRecorder = null;
+                  recordingBtn = null;
+                  toast('Grabación guardada en este dispositivo.');
+                  renderBox();
+                };
+                mediaRecorder.start();
+                btn.textContent = '⏹ Detener';
+              } catch (e) {
+                toast('No se pudo acceder al micrófono.');
+              }
+            });
+            box.querySelector('.audio-upload-btn').addEventListener('click', () => {
+              box.querySelector('.audio-upload-input').click();
+            });
+            box.querySelector('.audio-upload-input').addEventListener('change', async (ev) => {
+              const file = ev.target.files && ev.target.files[0];
+              if (!file) return;
+              await AudioNotes.save(id, file);
+              audioBtn.classList.add('on');
+              toast('Audio guardado en este dispositivo.');
+              renderBox();
+            });
+          }
+          box.querySelector('.note-cancel').addEventListener('click', closeBox);
+        }
+
+        audioBtn.addEventListener('click', (ev) => {
+          ev.preventDefault(); ev.stopPropagation();
+          if (box) { closeBox(); return; }
+          renderBox();
+        });
       });
     } catch (e) { /* DOM muy sencillo en pruebas: se omite */ }
   }

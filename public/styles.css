@@ -715,6 +715,16 @@ body {
 }
 .note-s:hover { color: var(--accent); }
 .note-s.on { color: var(--accent-ink); }
+
+.audio-s {
+  float: right;
+  border: none; background: transparent; cursor: pointer;
+  color: var(--ink-faint); font-size: 0.92rem; line-height: 1;
+  padding: 2px 4px; margin-left: 4px; vertical-align: middle;
+}
+.audio-s:hover { color: var(--accent); }
+.audio-s.on { color: var(--accent-ink); }
+.audio-player { margin-top: 4px; }
 .note-box-edit {
   margin: 8px 0; padding: 10px; background: var(--bg-soft);
   border: 1px solid var(--line); border-radius: 10px;
