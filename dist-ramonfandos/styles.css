@@ -231,13 +231,7 @@ body {
 .hour-card.done { opacity: 0.85; }
 .hour-card.done .hour-name { color: var(--accent-ink); }
 .hour-card .hour-ant { color: var(--ink-soft); font-size: 0.8rem; }
-/* La hora ("Oficio de lectura") y la franja horaria ("a cualquier hora")
-   compitiendo por la misma línea estrujaban el título hasta partirlo
-   palabra a palabra en tarjetas estrechas. El título ocupa siempre su
-   propia línea entera; la franja horaria y el visto van debajo. */
-.hour-card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
-.hour-card-head .hour-name { flex: 1 0 100%; }
-.hour-card-head .hour-check { margin-left: auto; }
+.hour-card-head { display: flex; align-items: baseline; gap: 8px; }
 .hour-name { font-weight: 700; font-size: 1.12rem; }
 .hour-time { font-size: 0.78rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 1.4px; font-family: var(--sans); }
 .hour-check { margin-left: auto; color: var(--ink-faint); font-weight: 700; opacity: 0; transition: opacity 0.2s ease; }
