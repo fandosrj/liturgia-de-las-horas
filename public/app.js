@@ -24,6 +24,10 @@
 
   // Versión web estática (GitHub Pages, ramonfandos.es...): sin servidor -> sin comunidad/presencia.
   const GH = window.LH_GH === 1 || /^([a-z0-9-]+\.)?[a-z0-9-]+\.github\.io$/i.test(location.hostname || '');
+  // "Mi comunidad" (oficios compartidos) funciona en Render (Node) y también
+  // en ramonfandos.es (PHP+SQLite, ver router.php); en GitHub Pages no hay
+  // ningún backend disponible y se queda desactivada.
+  const SPACES_OK = !GH || window.LH_SPACES === 1;
 
   // Nombre del hosting real, para los textos de privacidad: puede haber más
   // de una copia estática (GitHub Pages, ramonfandos.es) además de Render.
@@ -111,22 +115,22 @@
     if (h.startsWith('oficios/rezar/')) return oficioRezarView(h.split('oficios/rezar/')[1]);
     if (h.startsWith('oficios/editar/')) return oficioEditView(h.split('oficios/editar/')[1]);
     if (h.startsWith('oficios/importar/')) return oficioImportarView(h.split('oficios/importar/')[1]);
-    if (!GH && h === 'comunidad-oficios') return comunidadOficiosView();
-    if (!GH && /^comunidad-oficios\/(\d+)\/miembros$/.test(h)) return comunidadMiembrosView(+h.match(/^comunidad-oficios\/(\d+)\/miembros$/)[1]);
-    if (!GH && /^comunidad-oficios\/(\d+)\/nuevo$/.test(h)) return comunidadOficioEditView(+h.match(/^comunidad-oficios\/(\d+)\/nuevo$/)[1], null);
-    if (!GH && /^comunidad-oficios\/(\d+)\/editar\/(\d+)$/.test(h)) {
+    if (SPACES_OK && h === 'comunidad-oficios') return comunidadOficiosView();
+    if (SPACES_OK && /^comunidad-oficios\/(\d+)\/miembros$/.test(h)) return comunidadMiembrosView(+h.match(/^comunidad-oficios\/(\d+)\/miembros$/)[1]);
+    if (SPACES_OK && /^comunidad-oficios\/(\d+)\/nuevo$/.test(h)) return comunidadOficioEditView(+h.match(/^comunidad-oficios\/(\d+)\/nuevo$/)[1], null);
+    if (SPACES_OK && /^comunidad-oficios\/(\d+)\/editar\/(\d+)$/.test(h)) {
       const mm = h.match(/^comunidad-oficios\/(\d+)\/editar\/(\d+)$/);
       return comunidadOficioEditView(+mm[1], +mm[2]);
     }
-    if (!GH && /^comunidad-oficios\/(\d+)\/rezar\/(\d+)$/.test(h)) {
+    if (SPACES_OK && /^comunidad-oficios\/(\d+)\/rezar\/(\d+)$/.test(h)) {
       const mm = h.match(/^comunidad-oficios\/(\d+)\/rezar\/(\d+)$/);
       return comunidadOficioRezarView(+mm[1], +mm[2]);
     }
-    if (!GH && /^comunidad-oficios\/(\d+)\/versiones\/(\d+)$/.test(h)) {
+    if (SPACES_OK && /^comunidad-oficios\/(\d+)\/versiones\/(\d+)$/.test(h)) {
       const mm = h.match(/^comunidad-oficios\/(\d+)\/versiones\/(\d+)$/);
       return comunidadVersionesView(+mm[1], +mm[2]);
     }
-    if (!GH && /^comunidad-oficios\/(\d+)$/.test(h)) return comunidadEspacioView(+h.match(/^comunidad-oficios\/(\d+)$/)[1]);
+    if (SPACES_OK && /^comunidad-oficios\/(\d+)$/.test(h)) return comunidadEspacioView(+h.match(/^comunidad-oficios\/(\d+)$/)[1]);
     return homeView();
   }
 

@@ -2,9 +2,11 @@
 /* ============================================================
    Build ramonfandos.es/liturgiadelashoras (versión estática,
    hosting compartido DonDominio, subida por FTP).
-   Igual que build-github.mjs (sin comunidad ni mapa, porque ese
-   hosting no puede correr el servidor Node/WebSocket), pero con
-   las URLs propias en vez de las de liturgiahoras.github.io.
+   Sin presencia en vivo / intenciones / coros (necesitan Node +
+   WebSocket, que este hosting no tiene). "Mi comunidad" (oficios
+   compartidos) SÍ funciona aquí: habla con router.php + SQLite,
+   un puerto en PHP del mismo backend que ya corre en Node -sin
+   avisos en vivo por WebSocket, el resto igual-.
    ============================================================ */
 import { cp, rm, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
@@ -23,8 +25,8 @@ await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
 await cp(src, out, { recursive: true });
 
-// --- Quitar módulos de comunidad y mapa (mismo motivo que GitHub Pages) --
-await rm(join(out, 'lib', 'community.js'), { force: true });
+// --- Quitar solo el mapa (presencia en vivo). community.js SÍ se queda: ---
+// --- lo usa "Mi comunidad" (oficios), que aquí habla con router.php. -----
 await rm(join(out, 'vendor', 'leaflet'), { recursive: true, force: true });
 
 // --- Patch index.html ----------------------------------------------------
@@ -34,29 +36,28 @@ let html = await readFile(indexPath, 'utf8');
 const removals = [
   '<link rel="stylesheet" href="vendor/leaflet/leaflet.min.css">',
   '<link rel="stylesheet" href="vendor/leaflet/leaflet.min.css" >',
-  '<script src="vendor/leaflet/leaflet.min.js"></script>',
-  '<script src="lib/community.js"></script>'
+  '<script src="vendor/leaflet/leaflet.min.js"></script>'
 ];
 for (const r of removals) html = html.split(r).join('');
 
 html = html
   .replace(/(<a[^>]*href="#comunidad"[^>]*>.*?<\/a>)/g, '')
-  .replace(/(<li><a[^>]*href="#comunidad-oficios"[^>]*>.*?<\/a><\/li>)/g, '')
-  .replace('<script src="app.js"></script>', '<script>window.LH_GH = 1;</script>\n    <script src="app.js"></script>')
+  // Importante: community.js lee window.LH_BASE en cuanto se carga (antes
+  // que app.js), así que estas globales van ANTES del primer <script>, no
+  // justo delante de app.js -eso llegaba tarde y BASE se quedaba vacío-.
+  .replace('<script src="vendor/breviarium.umd.js"></script>',
+    '<script>window.LH_GH = 1; window.LH_SPACES = 1; window.LH_BASE = "/liturgiadelashoras";</script>\n<script src="vendor/breviarium.umd.js"></script>')
   .split(OLD_URL).join(NEW_URL)
   .split(OLD_HOST).join(NEW_HOST);
 
 await writeFile(indexPath, html);
 
-// --- Patch sw.js: cache propio y CORE sin community/leaflet --------------
+// --- Patch sw.js: cache propio, sin vendor/leaflet (community.js se queda) --
 const swPath = join(out, 'sw.js');
 let sw = await readFile(swPath, 'utf8');
 sw = sw
   .replace(/'liturgia-horas-v(\d+)'/, "'liturgia-horas-rf-v$1'")
-  .replace("'./lib/community.js',\n  ", '')
-  .replace("'./lib/community.js',\n", '')
-  .replace("'./vendor/leaflet',", '')
-  .replace("'./lib/community.js',", '');
+  .replace("'./vendor/leaflet',", '');
 await writeFile(swPath, sw);
 
 // --- robots.txt y sitemap.xml: los suyos, no los de github.io ------------
@@ -65,5 +66,6 @@ await writeFile(join(out, 'sitemap.xml'),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${NEW_URL}</loc></url>\n</urlset>\n`);
 
 console.log('Build ramonfandos.es OK ->', out);
-console.log('  - lib/community.js y vendor/leaflet eliminados (hosting compartido, sin Node)');
+console.log('  - vendor/leaflet eliminado (sin mapa de presencia en vivo)');
+console.log('  - lib/community.js SE QUEDA: "Mi comunidad" habla con api/router.php (PHP+SQLite)');
 console.log('  - URLs reescritas a', NEW_URL);
