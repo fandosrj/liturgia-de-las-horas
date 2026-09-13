@@ -98,6 +98,8 @@
     if (h === 'lecturas') return lecturasView();
     if (h === 'ajustes') return settingsView();
     if (h === 'acerca') return acercaView();
+    if (h === 'oficios') return oficiosView();
+    if (h.startsWith('oficios/')) return oficioEditView(h.split('oficios/')[1]);
     return homeView();
   }
 
@@ -850,8 +852,10 @@
       const data = await Liturgy.load(currentDate, hourId);
       const opts = Liturgy.optionsFor(data, hourId);
       if (!opts.length) { view.innerHTML = '<div class="note-box">No hay datos para esta hora en esta fecha.</div>'; showLoading(false); return; }
+      let info = null;
+      try { info = await Liturgy.ensure().getLiturgyInformation(currentDate); } catch (e) { /* sin festividad: se ignora el vinculo por festividad */ }
 
-      buildHourHtml(hourId, hx, opts, 0);
+      buildHourHtml(hourId, hx, opts, 0, info);
       if (!GH) Community.joinHour(hourId);
     } catch (e) {
       view.innerHTML = errBox(e);
@@ -859,9 +863,214 @@
     showLoading(false);
   }
 
-  function buildHourHtml(hourId, hx, opts, idx) {
+  /* -------- Oficios personalizados: piezas construidas por el usuario -------- */
+  function customPieceHtml(p) {
+    const texto = p.texto || '';
+    if (p.tipo === 'preces') return `<div class="rubric">Preces</div><div class="preces"><p class="peticion">${Liturgy.italic(texto).replace(/\n/g, '<br>')}</p></div>`;
+    if (p.tipo === 'oracion') return `<div class="rubric">Oración</div>` + Liturgy.text(texto);
+    if (p.tipo === 'lectura') return `<div class="rubric">${Liturgy.esc(p.ref || 'Lectura breve')}</div>` + Liturgy.text(texto);
+    if (p.tipo === 'responsorio') return `<div class="responsorios"><p>${Liturgy.italic(texto).replace(/\n/g, '<br>')}</p></div>`;
+    return Liturgy.text(texto);
+  }
+
+  function customOfficeHtml(office) {
+    let h = '';
+    const piezas = office.piezas || [];
+    for (let i = 0; i < piezas.length; i++) {
+      const p = piezas[i];
+      if (p.tipo === 'salmo') {
+        h += `<div class="psalm-block"><div class="psalm-ref">${Liturgy.esc(p.ref || 'Salmo')}</div>${Liturgy.text(p.texto || '')}</div>`;
+      } else if (p.tipo === 'antifona' && piezas[i + 1] && piezas[i + 1].tipo === 'salmo') {
+        const next = piezas[i + 1];
+        h += `<div class="psalm-block"><div class="psalm-ref">${Liturgy.esc(next.ref || 'Salmo')}</div><div class="ant">${Liturgy.italic(p.texto || '').replace(/\n/g, '<br>')}</div>${Liturgy.text(next.texto || '')}</div>`;
+        i++;
+      } else if (p.tipo === 'antifona') {
+        h += `<div class="ant">${Liturgy.italic(p.texto || '').replace(/\n/g, '<br>')}</div>`;
+      } else {
+        h += customPieceHtml(p);
+      }
+    }
+    return '<article class="prayer">' + h + '</article>';
+  }
+
+  function oficiosView() {
+    const offices = (window.CustomOffice ? CustomOffice.list() : []);
+    let html = `<div class="section-title">Mis oficios personalizados</div>
+      <div class="card">
+        <p class="text">Construye una hora completa desde cero -antífonas, salmos, lecturas, preces, oración- y, si quieres, haz que sustituya a una hora oficial: siempre, en una fecha fija de cada año, o cuando la festividad del día coincida con lo que elijas.</p>
+        <div class="btn-row" style="margin-bottom:0"><a class="btn primary" href="#oficios/nuevo">&#10011; Crear oficio nuevo</a></div>
+      </div>`;
+    if (!offices.length) {
+      html += '<div class="note-box">Todavía no has creado ningún oficio personalizado.</div>';
+    } else {
+      for (const o of offices) {
+        const v = o.vinculo;
+        let vinculoTxt = 'Sin vincular (solo guardado)';
+        if (v && v.activo) {
+          const hx = Liturgy.HOURS.find((h) => h.id === v.horaId);
+          const nombreHora = hx ? hx.name : v.horaId;
+          if (v.modo === 'siempre') vinculoTxt = `Sustituye siempre a ${nombreHora}`;
+          else if (v.modo === 'fecha') vinculoTxt = `Sustituye a ${nombreHora} el ${String(v.dia).padStart(2, '0')}/${String(v.mes).padStart(2, '0')}`;
+          else if (v.modo === 'festividad') vinculoTxt = `Sustituye a ${nombreHora} cuando la festividad contenga «${v.patron}»`;
+        }
+        html += `<a class="hour-card" href="#oficios/${encodeURIComponent(o.id)}">
+          <div class="hour-card-head"><span class="hour-name">${Liturgy.esc(o.nombre)}</span></div>
+          <div class="hour-card-body"><div class="hour-ant">${Liturgy.esc(vinculoTxt)} · ${(o.piezas || []).length} piezas</div></div>
+        </a>`;
+      }
+    }
+    view.innerHTML = html;
+  }
+
+  function oficioEditView(rawId) {
+    const id = decodeURIComponent(String(rawId || ''));
+    const isNew = id === 'nuevo';
+    const existing = isNew ? null : CustomOffice.get(id);
+    if (!isNew && !existing) { view.innerHTML = errBox(new Error('No se encontró ese oficio.')); return; }
+    const office = existing || { nombre: '', piezas: [] };
+    const vinculo = Object.assign({ activo: false, horaId: 'laudes', modo: 'siempre', mes: 1, dia: 1, patron: '' }, office.vinculo || {});
+    let piezas = (office.piezas || []).map((p) => Object.assign({}, p));
+    let modoActual = vinculo.modo;
+
+    function piezaRow(p, i, total) {
+      const tipoOpts = CustomOffice.PIEZA_TIPOS.map((t) => `<option value="${t.id}" ${p.tipo === t.id ? 'selected' : ''}>${t.label}</option>`).join('');
+      const needsRef = p.tipo === 'salmo' || p.tipo === 'lectura';
+      return `<div class="card oficio-pieza" data-i="${i}">
+        <div class="btn-row" style="margin-bottom:8px">
+          <select class="date-val pieza-tipo">${tipoOpts}</select>
+          <button type="button" class="btn small pieza-up" title="Subir" ${i === 0 ? 'disabled' : ''}>&#8593;</button>
+          <button type="button" class="btn small pieza-down" title="Bajar" ${i === total - 1 ? 'disabled' : ''}>&#8595;</button>
+          <button type="button" class="btn small pieza-del" title="Quitar">&#10005;</button>
+        </div>
+        ${needsRef ? `<input type="text" class="pieza-ref input-line" placeholder="Referencia (ej. Salmo 62)" value="${Liturgy.esc(p.ref || '')}">` : ''}
+        <textarea class="pieza-texto" placeholder="Texto de esta pieza...">${Liturgy.esc(p.texto || '')}</textarea>
+      </div>`;
+    }
+
+    function wirePiezas() {
+      view.querySelectorAll('.oficio-pieza').forEach((el) => {
+        const i = parseInt(el.dataset.i, 10);
+        el.querySelector('.pieza-tipo').addEventListener('change', (e) => { piezas[i].tipo = e.target.value; renderPiezas(); });
+        const refEl = el.querySelector('.pieza-ref');
+        if (refEl) refEl.addEventListener('input', (e) => { piezas[i].ref = e.target.value; });
+        el.querySelector('.pieza-texto').addEventListener('input', (e) => { piezas[i].texto = e.target.value; });
+        el.querySelector('.pieza-del').addEventListener('click', () => { piezas.splice(i, 1); renderPiezas(); });
+        const up = el.querySelector('.pieza-up');
+        if (up) up.addEventListener('click', () => { if (i > 0) { const t = piezas[i - 1]; piezas[i - 1] = piezas[i]; piezas[i] = t; renderPiezas(); } });
+        const down = el.querySelector('.pieza-down');
+        if (down) down.addEventListener('click', () => { if (i < piezas.length - 1) { const t = piezas[i + 1]; piezas[i + 1] = piezas[i]; piezas[i] = t; renderPiezas(); } });
+      });
+    }
+
+    function renderPiezas() {
+      const cont = view.querySelector('#oficio-piezas');
+      if (!cont) return;
+      cont.innerHTML = piezas.length
+        ? piezas.map((p, i) => piezaRow(p, i, piezas.length)).join('')
+        : '<div class="note-box">Añade la primera pieza.</div>';
+      wirePiezas();
+    }
+
+    const horaOpts = Liturgy.HOURS.map((h) => `<option value="${h.id}" ${vinculo.horaId === h.id ? 'selected' : ''}>${h.name}</option>`).join('');
+
+    let html = `<div class="prayer-toolbar">
+      <button class="icon-btn" onclick="location.hash='#oficios'" aria-label="Volver">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2z"/></svg>
+      </button>
+      <div class="tt"><h1>${isNew ? 'Nuevo oficio' : 'Editar oficio'}</h1></div>
+    </div>
+    <div class="card">
+      <label class="pick" style="display:block">Nombre del oficio
+        <input type="text" id="oficio-nombre" class="input-line" value="${Liturgy.esc(office.nombre)}" placeholder="Ej. Vísperas cistercienses">
+      </label>
+    </div>
+    <div class="section-title">Piezas del oficio</div>
+    <div id="oficio-piezas"></div>
+    <div class="btn-row"><button type="button" class="btn" id="oficio-add-pieza">&#10011; Añadir pieza</button></div>
+    <div class="section-title">Vincular al calendario</div>
+    <div class="card">
+      <label class="pick"><input type="checkbox" id="v-activo" ${vinculo.activo ? 'checked' : ''}> Sustituir a una hora oficial</label>
+      <div id="vinculo-detalle" style="${vinculo.activo ? '' : 'display:none'};margin-top:10px">
+        <label class="pick" style="display:block;margin-bottom:8px">Hora que sustituye
+          <select id="v-hora" class="date-val">${horaOpts}</select>
+        </label>
+        <div class="seg" style="margin-bottom:8px">
+          <button type="button" class="v-modo ${vinculo.modo === 'siempre' ? 'active' : ''}" data-modo="siempre">Siempre</button>
+          <button type="button" class="v-modo ${vinculo.modo === 'fecha' ? 'active' : ''}" data-modo="fecha">Fecha fija</button>
+          <button type="button" class="v-modo ${vinculo.modo === 'festividad' ? 'active' : ''}" data-modo="festividad">Festividad</button>
+        </div>
+        <div id="v-fecha-box" style="${vinculo.modo === 'fecha' ? '' : 'display:none'}">
+          <input type="number" id="v-dia" min="1" max="31" value="${vinculo.dia || 1}" style="width:70px"> /
+          <input type="number" id="v-mes" min="1" max="12" value="${vinculo.mes || 1}" style="width:70px">
+          <div class="comm-sub">día / mes, cada año</div>
+        </div>
+        <div id="v-fest-box" style="${vinculo.modo === 'festividad' ? '' : 'display:none'}">
+          <input type="text" id="v-patron" class="input-line" placeholder="Ej. Asunción" value="${Liturgy.esc(vinculo.patron || '')}">
+          <div class="comm-sub">Se usa cuando el nombre de la festividad del día contiene este texto</div>
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button type="button" class="btn primary" id="oficio-guardar">Guardar oficio</button>
+      ${!isNew ? '<button type="button" class="btn" id="oficio-borrar">Eliminar</button>' : ''}
+    </div>`;
+
+    view.innerHTML = html;
+    renderPiezas();
+
+    view.querySelector('#oficio-add-pieza').addEventListener('click', () => {
+      piezas.push({ tipo: 'texto', texto: '' });
+      renderPiezas();
+    });
+
+    const vActivo = view.querySelector('#v-activo');
+    view.querySelector('#vinculo-detalle') && vActivo.addEventListener('change', () => {
+      view.querySelector('#vinculo-detalle').style.display = vActivo.checked ? '' : 'none';
+    });
+
+    view.querySelectorAll('.v-modo').forEach((b) => {
+      b.addEventListener('click', () => {
+        modoActual = b.dataset.modo;
+        view.querySelectorAll('.v-modo').forEach((x) => x.classList.toggle('active', x === b));
+        view.querySelector('#v-fecha-box').style.display = modoActual === 'fecha' ? '' : 'none';
+        view.querySelector('#v-fest-box').style.display = modoActual === 'festividad' ? '' : 'none';
+      });
+    });
+
+    view.querySelector('#oficio-guardar').addEventListener('click', () => {
+      const nombre = view.querySelector('#oficio-nombre').value.trim();
+      if (!nombre) { toast('Ponle un nombre al oficio.'); return; }
+      const nuevo = {
+        id: isNew ? undefined : office.id,
+        creado: isNew ? undefined : office.creado,
+        nombre,
+        piezas: piezas.filter((p) => (p.texto || '').trim()),
+        vinculo: {
+          activo: view.querySelector('#v-activo').checked,
+          horaId: view.querySelector('#v-hora').value,
+          modo: modoActual,
+          dia: parseInt(view.querySelector('#v-dia').value, 10) || 1,
+          mes: parseInt(view.querySelector('#v-mes').value, 10) || 1,
+          patron: view.querySelector('#v-patron').value.trim()
+        }
+      };
+      CustomOffice.save(nuevo);
+      toast('Oficio guardado.');
+      location.hash = '#oficios';
+    });
+
+    const btnBorrar = view.querySelector('#oficio-borrar');
+    if (btnBorrar) btnBorrar.addEventListener('click', () => {
+      CustomOffice.remove(office.id);
+      toast('Oficio eliminado.');
+      location.hash = '#oficios';
+    });
+  }
+
+  function buildHourHtml(hourId, hx, opts, idx, info) {
     const opt = opts[Math.min(idx, opts.length - 1)];
     const done = Store.isPrayed(currentDate, hourId);
+    const custom = (window.CustomOffice ? CustomOffice.forHour(hourId, currentDate, info || {}) : null);
     const optsHtml = opts.length > 1
       ? `<div class="btn-row option-bar-2">
            <span>Opción:</span>
@@ -884,7 +1093,12 @@
 
     html += optsHtml;
 
-    html += Liturgy.render(hourId, opt, null);
+    if (custom) {
+      html += `<div class="note-box custom-office-banner">Rezando tu oficio personalizado: <b>${Liturgy.esc(custom.nombre)}</b> · <a href="#oficios/${encodeURIComponent(custom.id)}">gestionar</a></div>`;
+      html += customOfficeHtml(custom);
+    } else {
+      html += Liturgy.render(hourId, opt, null);
+    }
 
     html += `<div class="done-bar">
       <button class="btn ${done ? 'marked' : 'primary'}" id="btn-done">${done ? '&#10003; Hora rezada' : 'Marcar como rezada'}</button>
@@ -899,6 +1113,7 @@
     attachFavStars();
     enhancePrayerText();
     attachAudioNotes();
+    if (!custom) attachCustomText();
     if (!GH) loadIntentions(intoSlot('#intentions-slot'));
     if (!GH) attachNowOthers();
 
@@ -918,7 +1133,7 @@
     }
 
     document.querySelectorAll('.option-bar-2 [data-opt]').forEach((b) => {
-      b.addEventListener('click', () => buildHourHtml(hourId, hx, opts, parseInt(b.dataset.opt, 10)));
+      b.addEventListener('click', () => buildHourHtml(hourId, hx, opts, parseInt(b.dataset.opt, 10), info));
     });
   }
 
@@ -1249,6 +1464,68 @@
         refEl.appendChild(star);
       });
     } catch (e) { /* DOM muy sencillo en pruebas: los favoritos se omiten */ }
+  }
+
+  /* -------- Personalizar piezas sueltas del oficio oficial (Nivel 1) -------- */
+  function wireCustomPiece(el) {
+    if (!el || el.dataset.ctWired) return;
+    el.dataset.ctWired = '1';
+    const original = (el.innerText || el.textContent || '').trim();
+    if (!original) return;
+    const stored = CustomText.get(original);
+    if (stored) { el.textContent = stored; el.classList.add('custom-edited'); }
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'piece-edit-s';
+    btn.innerHTML = '&#9998; Personalizar';
+    el.insertAdjacentElement('afterend', btn);
+
+    let box = null;
+    btn.addEventListener('click', () => {
+      if (box) { box.remove(); box = null; return; }
+      box = document.createElement('div');
+      box.className = 'note-box-edit';
+      const current = CustomText.get(original) || original;
+      box.innerHTML = `<textarea>${Liturgy.esc(current)}</textarea>
+        <div class="btn-row">
+          <button type="button" class="btn primary ct-save">Guardar</button>
+          <button type="button" class="btn ct-restore">Texto original</button>
+          <button type="button" class="btn note-cancel">Cerrar</button>
+        </div>`;
+      btn.insertAdjacentElement('afterend', box);
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const ta = box.querySelector('textarea');
+      ta.focus();
+      box.querySelector('.ct-save').addEventListener('click', () => {
+        CustomText.set(original, ta.value);
+        const v = ta.value.trim();
+        el.textContent = v || original;
+        el.classList.toggle('custom-edited', !!v && v !== original);
+        box.remove(); box = null;
+      });
+      box.querySelector('.ct-restore').addEventListener('click', () => {
+        CustomText.clear(original);
+        el.textContent = original;
+        el.classList.remove('custom-edited');
+        ta.value = original;
+      });
+      box.querySelector('.note-cancel').addEventListener('click', () => { box.remove(); box = null; });
+    });
+  }
+
+  function attachCustomText() {
+    try {
+      if (!window.CustomText) return;
+      view.querySelectorAll('.prayer .ant').forEach(wireCustomPiece);
+      view.querySelectorAll('.prayer .preces').forEach(wireCustomPiece);
+      view.querySelectorAll('.prayer .rubric').forEach((r) => {
+        if ((r.textContent || '').trim() === 'Oración') {
+          const next = r.nextElementSibling;
+          if (next && next.classList.contains('text')) wireCustomPiece(next);
+        }
+      });
+    } catch (e) { /* DOM muy sencillo en pruebas: se omite */ }
   }
 
   /* --------------- Subrayado de versos y notas personales --------------- */

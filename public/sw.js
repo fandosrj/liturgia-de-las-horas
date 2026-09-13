@@ -3,7 +3,7 @@
    Precarga la app y la librería de rezo (una sola vez).
    ============================================================ */
 
-const CACHE = 'liturgia-horas-v40';
+const CACHE = 'liturgia-horas-v41';
 const CORE = [
   './',
   './index.html',
@@ -13,6 +13,8 @@ const CORE = [
   './lib/favs.js',
   './lib/notes.js',
   './lib/audionotes.js',
+  './lib/customtext.js',
+  './lib/customoffice.js',
   './lib/latin.js',
   './lib/ortodoxo.js',
   './lib/salterio.js',
