@@ -16,8 +16,9 @@ data/
 Thumbs.db
 .DS_Store
 
-# Build GitHub Pages
+# Build GitHub Pages y ramonfandos.es
 dist-github/
+dist-ramonfandos/
 
 # Editor / SO
 .vscode/
