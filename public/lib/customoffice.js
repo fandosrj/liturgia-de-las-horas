@@ -159,5 +159,35 @@ window.CustomOffice = (() => {
     return out;
   }
 
-  return { PIEZA_TIPOS, HOUR_TEMPLATES, templateFor, list, get, save, remove, forHour, forAnyToday };
+  /* Mezclar horas oficiales y personalizadas: asignación explícita y
+     visible, hora por hora ("en Oficio de lectura usa este mío, en
+     Laudes el oficial"). Nunca automática ni por calendario -eso es el
+     aviso de arriba-, así el usuario decide y no hay sorpresas. */
+  const ASSIGN_KEY = 'liturgia.customoffice.assign.v1';
+  function readAssignments() {
+    try {
+      const raw = localStorage.getItem(ASSIGN_KEY);
+      const obj = raw ? JSON.parse(raw) : {};
+      return obj && typeof obj === 'object' ? obj : {};
+    } catch (e) { return {}; }
+  }
+  function getAssignment(hourId) {
+    const a = readAssignments()[hourId];
+    return a ? get(a) : null;
+  }
+  function setAssignment(hourId, officeId) {
+    const all = readAssignments();
+    if (officeId) all[hourId] = officeId; else delete all[hourId];
+    try { localStorage.setItem(ASSIGN_KEY, JSON.stringify(all)); } catch (e) { /* se omite */ }
+  }
+  function assignedHourFor(officeId) {
+    const all = readAssignments();
+    for (const hourId in all) if (all[hourId] === officeId) return hourId;
+    return null;
+  }
+
+  return {
+    PIEZA_TIPOS, HOUR_TEMPLATES, templateFor, list, get, save, remove, forHour, forAnyToday,
+    getAssignment, setAssignment, assignedHourFor
+  };
 })();

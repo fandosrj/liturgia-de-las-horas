@@ -849,6 +849,12 @@
     const hx = Liturgy.HOURS.find((h) => h.id === hourId);
     if (!hx) return homeView();
 
+    // Mezclar horas oficiales y personalizadas: si el usuario ha asignado
+    // explícitamente un oficio propio a esta hora, se usa ese en vez de
+    // cargar el oficial (no hace falta rehacer las horas que no ha tocado).
+    const assigned = window.CustomOffice ? CustomOffice.getAssignment(hourId) : null;
+    if (assigned) { buildAssignedHourHtml(hourId, hx, assigned); return; }
+
     showLoading(true);
     try {
       const data = await Liturgy.load(currentDate, hourId);
@@ -1013,6 +1019,8 @@
     }
 
     const horaOpts = Liturgy.HOURS.map((h) => `<option value="${h.id}" ${vinculo.horaId === h.id ? 'selected' : ''}>${h.name}</option>`).join('');
+    const asignadaAhora = !isNew && window.CustomOffice ? CustomOffice.assignedHourFor(office.id) : null;
+    const asignarOpts = Liturgy.HOURS.map((h) => `<option value="${h.id}" ${asignadaAhora === h.id ? 'selected' : ''}>${h.name}</option>`).join('');
 
     let html = `<div class="prayer-toolbar">
       <button class="icon-btn" onclick="location.hash='#oficios'" aria-label="Volver">
@@ -1062,6 +1070,14 @@
           <div class="comm-sub">Se usa cuando el nombre de la festividad del día contiene este texto</div>
         </div>
       </div>
+    </div>
+    <div class="section-title">Sustituir una hora del rezo diario</div>
+    <div class="card">
+      <p class="comm-sub">Puedes usar este oficio en el sitio de una hora concreta (por ejemplo, tu propio Oficio de lectura, dejando Laudes, Vísperas... como las oficiales). Se puede cambiar o quitar en cualquier momento desde esa misma hora.</p>
+      <select id="oficio-asignar" class="date-val">
+        <option value="">Ninguna, no sustituye nada</option>
+        ${asignarOpts}
+      </select>
     </div>
     <div class="btn-row">
       <button type="button" class="btn primary" id="oficio-guardar">Guardar oficio</button>
@@ -1117,13 +1133,19 @@
           patron: view.querySelector('#v-patron').value.trim()
         }
       };
-      CustomOffice.save(nuevo);
+      const saved = CustomOffice.save(nuevo);
+      const elegido = view.querySelector('#oficio-asignar').value;
+      const previa = CustomOffice.assignedHourFor(saved.id);
+      if (previa && previa !== elegido) CustomOffice.setAssignment(previa, null);
+      if (elegido) CustomOffice.setAssignment(elegido, saved.id);
       toast('Oficio guardado.');
       location.hash = '#oficios';
     });
 
     const btnBorrar = view.querySelector('#oficio-borrar');
     if (btnBorrar) btnBorrar.addEventListener('click', () => {
+      const asignada = CustomOffice.assignedHourFor(office.id);
+      if (asignada) CustomOffice.setAssignment(asignada, null);
       CustomOffice.remove(office.id);
       toast('Oficio eliminado.');
       location.hash = '#oficios';
@@ -1167,6 +1189,51 @@
       btn.classList.toggle('primary', !ns);
       btn.innerHTML = ns ? '&#10003; Rezado' : 'Marcar como rezado';
       if (ns) toast('Oficio completado. <b>Oremus.</b>');
+    });
+  }
+
+  /* Hora del día servida por un oficio personalizado, asignado a mano por
+     el usuario (ver "Sustituir una hora del rezo diario" en el editor).
+     Siempre visible y reversible con un clic: nunca una sorpresa. */
+  function buildAssignedHourHtml(hourId, hx, office) {
+    const done = Store.isPrayed(currentDate, hourId);
+    let html = `<div class="prayer-toolbar">
+      <button class="icon-btn" onclick="location.hash='#hoy'" aria-label="Volver">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2z"/></svg>
+      </button>
+      <div class="tt"><h1>${hx.name}</h1><div class="sub">${fmtDate(currentDate)}</div></div>
+      <button class="icon-btn" onclick="location.hash='#ajustes'" aria-label="Ajustes">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.3 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1l.3 2.9h4l.3-2.9c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5L19.4 13zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></svg>
+      </button>
+    </div>`;
+    html += `<div class="note-box">Aquí tienes tu oficio personalizado <b>${Liturgy.esc(office.nombre)}</b> en vez del oficial de ${Liturgy.esc(hx.name)}.
+      <div class="btn-row" style="margin-top:8px;margin-bottom:0">
+        <button type="button" class="btn small" id="usar-oficial-btn">Usar el oficial en su lugar</button>
+        <a class="btn small" href="#oficios/editar/${encodeURIComponent(office.id)}">Editar</a>
+      </div>
+    </div>`;
+    html += (office.piezas && office.piezas.length) ? customOfficeHtml(office) : '<div class="note-box">Este oficio todavía no tiene piezas.</div>';
+    html += `<div class="done-bar">
+      <button class="btn ${done ? 'marked' : 'primary'}" id="btn-done">${done ? '&#10003; Hora rezada' : 'Marcar como rezada'}</button>
+    </div>`;
+    view.innerHTML = html;
+    asAppend();
+    attachFavStars();
+    enhancePrayerText();
+    attachAudioNotes();
+
+    const usarOficial = view.querySelector('#usar-oficial-btn');
+    if (usarOficial) usarOficial.addEventListener('click', () => {
+      CustomOffice.setAssignment(hourId, null);
+      toast('Vuelves al oficio oficial de ' + hx.name + '.');
+      hourView(hourId);
+    });
+    const btnDone = view.querySelector('#btn-done');
+    if (btnDone) btnDone.addEventListener('click', () => {
+      const newState = Store.togglePrayed(currentDate, hourId);
+      btnDone.classList.toggle('marked', newState);
+      btnDone.classList.toggle('primary', !newState);
+      btnDone.innerHTML = newState ? '&#10003; Hora rezada' : 'Marcar como rezada';
     });
   }
 
