@@ -175,6 +175,11 @@ const Liturgy = (() => {
     }
   };
 
+  function canticleInfo(key) {
+    const c = CANTICLES[key];
+    return c ? { cita: c.cita, ref: c.ref, texto: c.lines.join('\n') } : null;
+  }
+
   function canticleHtml(key, antifona) {
     const c = CANTICLES[key];
     if (!c) return '';
@@ -388,7 +393,7 @@ const Liturgy = (() => {
 
   return {
     HOURS, MIDDAY, ensure, setDate, load, optionsFor, render, esc, italic, text,
-    invitatoryPsalms, opening, gloria
+    invitatoryPsalms, opening, gloria, canticleInfo
   };
 })();
 

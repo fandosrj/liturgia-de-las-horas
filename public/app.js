@@ -918,6 +918,78 @@
     return '<article class="prayer">' + h + '</article>';
   }
 
+  // Traer el contenido REAL de una hora oficial (de hoy) como piezas
+  // editables, en vez de partir de campos en blanco: así no hay que
+  // reescribir lo que ya está bien, solo tocar lo que se quiera cambiar.
+  async function importarHoraOficial(hourId, date) {
+    const hx = Liturgy.HOURS.find((h) => h.id === hourId);
+    if (!hx) return [];
+    const data = await Liturgy.load(date, hourId);
+    const opts = Liturgy.optionsFor(data, hourId);
+    if (!opts.length) return [];
+    const d = opts[0].data;
+    const piezas = [];
+    const push = (tipo, texto, ref) => {
+      const t = (texto == null ? '' : String(texto)).trim();
+      if (t) piezas.push(ref ? { tipo, texto: t, ref: String(ref).trim() } : { tipo, texto: t });
+    };
+    const limpiaResp = (list) => (list || []).map((l) => String(l).replace(/^\$/, '')).join('\n');
+    const salmo = (key) => { push('antifona', d[key + '_antifona']); push('salmo', d[key + '_texto'], d[key + '_cita']); };
+    const cantico = (key, antifona) => {
+      const c = Liturgy.canticleInfo(key);
+      if (!c) return;
+      push('antifona', antifona);
+      push('salmo', c.texto, c.cita + (c.ref ? ' · ' + c.ref : ''));
+    };
+
+    if (hx.invite) push('invitatorio', 'Señor, ábreme los labios. / Y mi boca proclamará tu alabanza.');
+    push('apertura', hx.verse + ' / ' + hx.res);
+    push('himno', d.himno);
+
+    if (hourId === 'oficio') {
+      salmo('primer_salmo'); salmo('segundo_salmo'); salmo('tercer_salmo');
+      push('lectura_larga', d.lectura_biblica_texto_a || d.lectura_biblica_texto_i || d.lectura_biblica_texto_p,
+        d.lectura_biblica_cita_a || d.lectura_biblica_cita_i || d.lectura_biblica_cita_p);
+      if (d.responsorio1 && d.responsorio1.length) push('responsorio', limpiaResp(d.responsorio1));
+      const patText = d.lectura_patristica_texto_a || d.lectura_patristica_texto_i || d.lectura_patristica_texto_p;
+      if (patText) {
+        push('lectura_larga', patText, d.lectura_patristica_cita_a || d.lectura_patristica_cita_i || d.lectura_patristica_cita_p);
+        const res2 = d.responsorio2_a || d.responsorio2_i || d.responsorio2_p || d.responsorio3_a || d.responsorio3_i || d.responsorio3_p;
+        if (res2 && res2.length) push('responsorio', limpiaResp(res2));
+      }
+      push('oracion', d.oracion_final);
+    } else if (hourId === 'completas') {
+      salmo('primer_salmo'); salmo('segundo_salmo');
+      if (d.lectura_biblica_texto) push('lectura_breve', d.lectura_biblica_texto, d.lectura_biblica_cita);
+      const resC = (d.responsorio && d.responsorio.length) ? d.responsorio : d.responsorio_pascua;
+      if (resC && resC.length) push('responsorio', limpiaResp(resC));
+      cantico('nunc', d.cantico_evangelico_antifona || d.antifona_triduo || d.antifona_inalbis);
+      push('oracion', d.final);
+      push('antifona_mariana', 'Salve, Reina de los cielos y Señora de los ángeles; salve, raíz y puerta, de donde vino la luz al mundo. Alégrate, Virgen gloriosa, hermosa entre todas las mujeres; y ruega por nosotros a Cristo, Señor nuestro. (Tiempo de Pascua: Reina del cielo, alégrate, aleluya, porque el Señor, a quien mereciste llevar, ha resucitado, aleluya; ruega a Dios por nosotros, aleluya.)');
+    } else if (Liturgy.MIDDAY.includes(hourId)) {
+      salmo('primer_salmo'); salmo('segundo_salmo'); salmo('tercer_salmo');
+      if (d.lectura_biblica) push('lectura_breve', d.lectura_biblica, d.lectura_biblica_cita);
+      if (d.responsorios && d.responsorios.length) push('responsorio', limpiaResp(d.responsorios));
+      push('oracion', d.oracion_final);
+    } else {
+      salmo('primer_salmo'); salmo('segundo_salmo'); salmo('tercer_salmo');
+      if (d.lectura_biblica) push('lectura_breve', d.lectura_biblica, d.lectura_biblica_cita);
+      if (d.responsorios && d.responsorios.length) push('responsorio', limpiaResp(d.responsorios));
+      cantico(hx.canticle, d.cantico_evangelico_antifona);
+      if (d.preces_contenido && d.preces_contenido.length) {
+        const intro = d.preces_intro ? d.preces_intro + '\n' : '';
+        const cont = d.preces_contenido.map((p) => String(p).replace(/^-\s*/, '')).join('\n');
+        const resp = d.preces_respuesta ? '\nR. ' + d.preces_respuesta : '';
+        push('preces', intro + cont + resp);
+      }
+      if (d.invitacion_padrenuestro) push('padrenuestro', d.invitacion_padrenuestro);
+      push('oracion', d.oracion_final);
+      if (hourId === 'laudes') push('bendicion', 'El Señor nos bendiga, nos guarde de todo mal y nos lleve a la vida eterna. Amén.');
+    }
+    push('cierre', 'Bendigamos al Señor. / Demos gracias a Dios.');
+    return piezas;
+  }
+
   async function oficiosView() {
     const offices = (window.CustomOffice ? CustomOffice.list() : []);
     let html = `<div class="section-title">Mis oficios personalizados</div>
@@ -1033,17 +1105,19 @@
         <input type="text" id="oficio-nombre" class="input-line" value="${Liturgy.esc(office.nombre)}" placeholder="Ej. Vísperas cistercienses">
       </label>
     </div>
-    ${isNew ? `<div class="card">
-      <div class="rubric">Empezar desde una plantilla (opcional)</div>
-      <p class="comm-sub">Elige para qué hora es y se rellenan los huecos vacíos en el orden real de esa hora: tú solo escribes el contenido. O deja "Ninguna" y empieza en blanco.</p>
+    <div class="card">
+      <div class="rubric">Traer piezas de una hora oficial</div>
+      <p class="comm-sub">Elige una hora: <b>Importar contenido de hoy</b> trae el texto real de esa hora tal cual se reza hoy (tú solo tocas lo que quieras cambiar). <b>Cargar huecos en blanco</b> monta el mismo orden de piezas, pero vacías, para escribir todo tú desde cero.</p>
       <div class="btn-row">
         <select id="oficio-plantilla" class="date-val">
-          <option value="">Ninguna, empezar en blanco</option>
           ${Liturgy.HOURS.map((h) => `<option value="${h.id}">${h.name}</option>`).join('')}
         </select>
-        <button type="button" class="btn" id="oficio-cargar-plantilla">Cargar plantilla</button>
       </div>
-    </div>` : ''}
+      <div class="btn-row">
+        <button type="button" class="btn primary" id="oficio-importar">Importar contenido de hoy</button>
+        <button type="button" class="btn" id="oficio-cargar-plantilla">Cargar huecos en blanco</button>
+      </div>
+    </div>
     <div class="section-title">Piezas del oficio</div>
     <div id="oficio-piezas"></div>
     <div class="btn-row"><button type="button" class="btn" id="oficio-add-pieza">&#10011; Añadir pieza</button></div>
@@ -1095,11 +1169,28 @@
     const btnPlantilla = view.querySelector('#oficio-cargar-plantilla');
     if (btnPlantilla) btnPlantilla.addEventListener('click', () => {
       const hourId = view.querySelector('#oficio-plantilla').value;
-      if (!hourId) { toast('Elige una hora para cargar su plantilla.'); return; }
       if (piezas.length && !confirm('Esto añade los huecos de esa hora al final de las piezas que ya tienes. ¿Seguir?')) return;
       piezas = piezas.concat(CustomOffice.templateFor(hourId));
       renderPiezas();
-      toast('Plantilla cargada: rellena el contenido de cada pieza.');
+      toast('Huecos cargados: rellena el contenido de cada pieza.');
+    });
+
+    const btnImportar = view.querySelector('#oficio-importar');
+    if (btnImportar) btnImportar.addEventListener('click', async () => {
+      const hourId = view.querySelector('#oficio-plantilla').value;
+      if (piezas.length && !confirm('Esto añade el contenido de hoy de esa hora al final de las piezas que ya tienes. ¿Seguir?')) return;
+      btnImportar.disabled = true;
+      btnImportar.textContent = 'Importando...';
+      try {
+        const importadas = await importarHoraOficial(hourId, currentDate);
+        if (!importadas.length) { toast('No se pudo traer el contenido de esa hora hoy.'); return; }
+        piezas = piezas.concat(importadas);
+        renderPiezas();
+        toast('Contenido de hoy importado: edita solo lo que quieras cambiar.');
+      } finally {
+        btnImportar.disabled = false;
+        btnImportar.textContent = 'Importar contenido de hoy';
+      }
     });
 
     const vActivo = view.querySelector('#v-activo');
