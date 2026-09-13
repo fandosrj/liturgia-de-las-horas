@@ -52,7 +52,7 @@ await writeFile(indexPath, html);
 const swPath = join(out, 'sw.js');
 let sw = await readFile(swPath, 'utf8');
 sw = sw
-  .replace(/'liturgia-horas-v\d+'/, "'liturgia-horas-rf-v1'")
+  .replace(/'liturgia-horas-v(\d+)'/, "'liturgia-horas-rf-v$1'")
   .replace("'./lib/community.js',\n  ", '')
   .replace("'./lib/community.js',\n", '')
   .replace("'./vendor/leaflet',", '')

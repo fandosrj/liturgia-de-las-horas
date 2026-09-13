@@ -28,8 +28,10 @@ window.CustomOffice = (() => {
     { id: 'oracion', label: 'Oración' },
     { id: 'bendicion', label: 'Bendición final' },
     { id: 'antifona_mariana', label: 'Antífona mariana final' },
+    { id: 'te_deum', label: 'Te Deum' },
     { id: 'cierre', label: 'Verso de cierre' },
-    { id: 'texto', label: 'Texto libre' }
+    { id: 'texto', label: 'Texto libre' },
+    { id: 'otro', label: 'Otro (tú pones el nombre)', custom: true }
   ];
 
   function midday() {

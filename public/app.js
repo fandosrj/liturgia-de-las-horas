@@ -900,6 +900,7 @@
      bloque independiente (con su propio título) para que favoritos, notas,
      audio propio y lectura en voz alta funcionen igual en cada una. */
   function pieceBaseLabel(p) {
+    if (p.tipo === 'otro' && p.tipoLabel) return p.tipoLabel;
     if (p.ref) return p.ref;
     const meta = CustomOffice.PIEZA_TIPOS.find((t) => t.id === p.tipo);
     return meta ? meta.label : 'Texto';
@@ -941,6 +942,53 @@
       h += `<div class="psalm-block"><div class="psalm-ref">${Liturgy.esc(labels[i])}</div>${inner}</div>`;
     });
     return '<article class="prayer">' + h + '</article>';
+  }
+
+  /* Modo coro: letra grande, sin menús, una pieza por pantalla -para
+     tableta en el atril-. Funciona sobre cualquier oficio (personal o de
+     comunidad), no cambia nada del oficio en sí. */
+  function entrarModoCoro(office) {
+    const piezas = office.piezas || [];
+    if (!piezas.length) { toast('Este oficio todavía no tiene piezas.'); return; }
+    const labels = pieceLabels(piezas);
+    let idx = 0;
+    const overlay = document.createElement('div');
+    overlay.className = 'modo-coro-overlay';
+    document.body.appendChild(overlay);
+
+    function salir() {
+      document.removeEventListener('keydown', onKey);
+      overlay.remove();
+    }
+    function onKey(e) {
+      if (e.key === 'ArrowRight' || e.key === ' ') { if (idx < piezas.length - 1) { idx++; render(); } }
+      else if (e.key === 'ArrowLeft') { if (idx > 0) { idx--; render(); } }
+      else if (e.key === 'Escape') salir();
+    }
+    function render() {
+      const p = piezas[idx];
+      const texto = p.texto || '';
+      const cuerpo = (p.tipo === 'antifona' || p.tipo === 'antifona_mariana' || p.tipo === 'preces' || p.tipo === 'responsorio')
+        ? Liturgy.italic(texto).replace(/\n/g, '<br>')
+        : Liturgy.esc(texto).replace(/\n/g, '<br>');
+      overlay.innerHTML = `
+        <div class="modo-coro-top">
+          <button type="button" class="icon-btn" id="mc-salir" aria-label="Salir del modo coro">&#10005;</button>
+          <div class="modo-coro-nombre">${Liturgy.esc(office.nombre || '')}</div>
+          <div class="modo-coro-contador">${idx + 1} / ${piezas.length}</div>
+        </div>
+        <div class="modo-coro-titulo">${Liturgy.esc(labels[idx])}</div>
+        <div class="modo-coro-cuerpo">${cuerpo || '<span class="comm-sub">(sin texto)</span>'}</div>
+        <div class="modo-coro-nav">
+          <button type="button" class="btn" id="mc-prev" ${idx === 0 ? 'disabled' : ''}>&#8592; Anterior</button>
+          <button type="button" class="btn primary" id="mc-next" ${idx === piezas.length - 1 ? 'disabled' : ''}>Siguiente &#8594;</button>
+        </div>`;
+      overlay.querySelector('#mc-salir').addEventListener('click', salir);
+      overlay.querySelector('#mc-prev').addEventListener('click', () => { if (idx > 0) { idx--; render(); } });
+      overlay.querySelector('#mc-next').addEventListener('click', () => { if (idx < piezas.length - 1) { idx++; render(); } });
+    }
+    document.addEventListener('keydown', onKey);
+    render();
   }
 
   // Traer el contenido REAL de una hora oficial (de hoy) como piezas
@@ -1214,6 +1262,8 @@
             ${o.estado === 'publicado' ? `<a class="btn primary" href="#comunidad-oficios/${spaceId}/rezar/${o.id}">Rezar</a>` : ''}
             ${canEditHere ? `<a class="btn" href="#comunidad-oficios/${spaceId}/editar/${o.id}">Editar</a>` : ''}
             ${canEditHere ? `<a class="btn" href="#comunidad-oficios/${spaceId}/versiones/${o.id}">Historial</a>` : ''}
+            ${canEditHere ? `<button type="button" class="btn" data-duplicar="${o.id}" data-duplicar-vaciar="0">Duplicar</button>` : ''}
+            ${canEditHere ? `<button type="button" class="btn" data-duplicar="${o.id}" data-duplicar-vaciar="1">Usar como esquema</button>` : ''}
             ${info.role === 'admin' ? `<button type="button" class="btn" data-toggle-estado="${o.id}" data-estado-actual="${o.estado}">${o.estado === 'publicado' ? 'Retirar' : 'Publicar'}</button>` : ''}
           </div>
         </div>`;
@@ -1259,6 +1309,7 @@
           <button type="button" class="btn small pieza-down" title="Bajar" ${i === total - 1 ? 'disabled' : ''}>&#8595;</button>
           <button type="button" class="btn small pieza-del" title="Quitar">&#10005;</button>
         </div>
+        ${p.tipo === 'otro' ? `<input type="text" class="pieza-tipolabel input-line" placeholder="Nombre de esta pieza" value="${Liturgy.esc(p.tipoLabel || '')}">` : ''}
         ${needsRef ? `<input type="text" class="pieza-ref input-line" placeholder="Referencia" value="${Liturgy.esc(p.ref || '')}">` : ''}
         <textarea class="pieza-texto" placeholder="Texto de esta pieza...">${Liturgy.esc(p.texto || '')}</textarea>
       </div>`;
@@ -1269,6 +1320,8 @@
         el.querySelector('.pieza-tipo').addEventListener('change', (e) => { piezas[i].tipo = e.target.value; renderPiezas(); });
         const refEl = el.querySelector('.pieza-ref');
         if (refEl) refEl.addEventListener('input', (e) => { piezas[i].ref = e.target.value; });
+        const tipoLabelEl = el.querySelector('.pieza-tipolabel');
+        if (tipoLabelEl) tipoLabelEl.addEventListener('input', (e) => { piezas[i].tipoLabel = e.target.value; });
         el.querySelector('.pieza-texto').addEventListener('input', (e) => { piezas[i].texto = e.target.value; });
         el.querySelector('.pieza-del').addEventListener('click', () => { piezas.splice(i, 1); renderPiezas(); });
         const up = el.querySelector('.pieza-up');
@@ -1362,8 +1415,11 @@
       </button>
       <div class="tt"><h1>${Liturgy.esc(office.nombre)}</h1><div class="sub">${fmtDate(currentDate)} · oficio de la comunidad</div></div>
     </div>`;
+    html += `<div class="btn-row"><button type="button" class="btn" id="btn-modo-coro">&#128225; Modo coro</button></div>`;
     html += customOfficeHtml(office);
     view.innerHTML = html;
+    const btnCoro = view.querySelector('#btn-modo-coro');
+    if (btnCoro) btnCoro.addEventListener('click', () => entrarModoCoro(office));
     asAppend();
     attachFavStars();
     enhancePrayerText();
@@ -1531,6 +1587,7 @@
           <button type="button" class="btn small pieza-down" title="Bajar" ${i === total - 1 ? 'disabled' : ''}>&#8595;</button>
           <button type="button" class="btn small pieza-del" title="Quitar">&#10005;</button>
         </div>
+        ${p.tipo === 'otro' ? `<input type="text" class="pieza-tipolabel input-line" placeholder="Nombre de esta pieza" value="${Liturgy.esc(p.tipoLabel || '')}">` : ''}
         ${needsRef ? `<input type="text" class="pieza-ref input-line" placeholder="Referencia (ej. Salmo 62)" value="${Liturgy.esc(p.ref || '')}">` : ''}
         <textarea class="pieza-texto" placeholder="Texto de esta pieza...">${Liturgy.esc(p.texto || '')}</textarea>
       </div>`;
@@ -1542,6 +1599,8 @@
         el.querySelector('.pieza-tipo').addEventListener('change', (e) => { piezas[i].tipo = e.target.value; renderPiezas(); });
         const refEl = el.querySelector('.pieza-ref');
         if (refEl) refEl.addEventListener('input', (e) => { piezas[i].ref = e.target.value; });
+        const tipoLabelEl = el.querySelector('.pieza-tipolabel');
+        if (tipoLabelEl) tipoLabelEl.addEventListener('input', (e) => { piezas[i].tipoLabel = e.target.value; });
         el.querySelector('.pieza-texto').addEventListener('input', (e) => { piezas[i].texto = e.target.value; });
         el.querySelector('.pieza-del').addEventListener('click', () => { piezas.splice(i, 1); renderPiezas(); });
         const up = el.querySelector('.pieza-up');
@@ -1746,12 +1805,15 @@
     if (!office.piezas || !office.piezas.length) {
       html += '<div class="note-box">Este oficio todavía no tiene piezas. <a href="#oficios/editar/' + encodeURIComponent(office.id) + '">Añádelas aquí</a>.</div>';
     } else {
+      html += `<div class="btn-row"><button type="button" class="btn" id="btn-modo-coro">&#128225; Modo coro</button></div>`;
       html += customOfficeHtml(office);
     }
     html += `<div class="done-bar">
       <button class="btn ${done ? 'marked' : 'primary'}" id="btn-done-of">${done ? '&#10003; Rezado' : 'Marcar como rezado'}</button>
     </div>`;
     view.innerHTML = html;
+    const btnCoro = view.querySelector('#btn-modo-coro');
+    if (btnCoro) btnCoro.addEventListener('click', () => entrarModoCoro(office));
     asAppend();
     attachFavStars();
     enhancePrayerText();

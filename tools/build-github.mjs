@@ -6,6 +6,9 @@
      - vendor/leaflet/   (mapa /api/geo)
    Inyecta window.LH_GH=1 (app.js desactiva toda la comunidad)
    y quita la entrada del drawer "Comunidad de rezo".
+   La principal ahora es ramonfandos.es/liturgiadelashoras: esta copia de
+   GitHub Pages pasa a ser un espejo, y sus etiquetas SEO (canonical,
+   og:url, JSON-LD) apuntan allí, no a sí misma.
    ============================================================ */
 import { cp, rm, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
@@ -14,6 +17,9 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = join(root, 'public');
 const out = join(root, 'dist-github');
+
+const OLD_URL = 'https://liturgiahoras.github.io/';
+const NEW_URL = 'https://ramonfandos.es/liturgiadelashoras/';
 
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
