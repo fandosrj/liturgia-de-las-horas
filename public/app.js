@@ -67,7 +67,15 @@
     return location.hash.replace(/^#\/?/, '');
   }
 
+  // Si una vista asíncrona (p.ej. oficiosView, que espera la festividad de
+  // hoy) sigue "en vuelo" cuando el usuario ya navegó a otra pantalla, no
+  // debe pintar su resultado tardío encima de la vista nueva. Cada vista
+  // async captura su turno al empezar y lo comprueba antes de escribir en
+  // el DOM.
+  let navGen = 0;
+
   async function route() {
+    navGen++;
     const existingAs = document.querySelector('.autoscroll');
     if (existingAs) existingAs.remove();
     stopSpeak();
@@ -991,6 +999,7 @@
   }
 
   async function oficiosView() {
+    const myGen = navGen;
     const offices = (window.CustomOffice ? CustomOffice.list() : []);
     let html = `<div class="section-title">Mis oficios personalizados</div>
       <div class="card">
@@ -1037,6 +1046,7 @@
         </div>`;
       }
     }
+    if (myGen !== navGen) return; // el usuario ya navegó a otra pantalla mientras se cargaba
     view.innerHTML = html;
   }
 
