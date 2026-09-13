@@ -41,6 +41,7 @@ for (const r of removals) html = html.split(r).join('');
 
 html = html
   .replace(/(<a[^>]*href="#comunidad"[^>]*>.*?<\/a>)/g, '')
+  .replace(/(<li><a[^>]*href="#comunidad-oficios"[^>]*>.*?<\/a><\/li>)/g, '')
   .replace('<script src="app.js"></script>', '<script>window.LH_GH = 1;</script>\n    <script src="app.js"></script>')
   .split(OLD_URL).join(NEW_URL)
   .split(OLD_HOST).join(NEW_HOST);

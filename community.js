@@ -88,6 +88,42 @@ function db(pathname) {
       ts INTEGER NOT NULL,
       PRIMARY KEY (choir_id, device_id, local_date, hour)
     );
+    CREATE TABLE IF NOT EXISTS spaces (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      code_admin TEXT NOT NULL UNIQUE,
+      code_member TEXT NOT NULL UNIQUE,
+      code_guest TEXT NOT NULL UNIQUE,
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS space_members (
+      space_id INTEGER NOT NULL,
+      device_id TEXT NOT NULL,
+      nick TEXT NOT NULL,
+      role TEXT NOT NULL,
+      joined_at INTEGER NOT NULL,
+      PRIMARY KEY (space_id, device_id)
+    );
+    CREATE TABLE IF NOT EXISTS space_offices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      space_id INTEGER NOT NULL,
+      nombre TEXT NOT NULL,
+      piezas TEXT NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'borrador',
+      version INTEGER NOT NULL DEFAULT 1,
+      updated_by TEXT,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS space_office_versions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      office_id INTEGER NOT NULL,
+      nombre TEXT NOT NULL,
+      piezas TEXT NOT NULL,
+      version INTEGER NOT NULL,
+      updated_by TEXT,
+      note TEXT,
+      created_at INTEGER NOT NULL
+    );
   `);
   return d;
 }
@@ -157,6 +193,31 @@ function createCommunityServer(engine, base) {
 
   function leavePresence(deviceId) {
     if (presence.delete(deviceId)) push('presence', presenceSnapshot());
+  }
+
+  /* ------------- Espacios: comunidades para oficios personalizados -------------
+     Sin cuentas de correo: un código de acceso hace de identidad (como los
+     coros). Tres códigos por espacio, uno por nivel de acceso: admin, member
+     (reza y ve lo publicado) y guest (solo lectura, para invitados). El
+     administrador puede además ascender a alguien a "editor" a mano. */
+  function genCode(len) {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    return Array.from({ length: len || 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  }
+  function uniqueCode(len) {
+    let code;
+    do { code = genCode(len); }
+    while (d.prepare('SELECT id FROM spaces WHERE code_admin = ? OR code_member = ? OR code_guest = ?').get(code, code, code));
+    return code;
+  }
+  function memberRole(spaceId, deviceId) {
+    const row = d.prepare('SELECT role FROM space_members WHERE space_id = ? AND device_id = ?').get(spaceId, deviceId);
+    return row ? row.role : null;
+  }
+  function canEdit(role) { return role === 'admin' || role === 'editor'; }
+  function snapshotVersion(office, note) {
+    d.prepare('INSERT INTO space_office_versions (office_id, nombre, piezas, version, updated_by, note, created_at) VALUES (?,?,?,?,?,?,?)')
+      .run(office.id, office.nombre, office.piezas, office.version, office.updated_by, note || null, Date.now());
   }
 
   /* --------------------------- Router --------------------------- */
@@ -373,6 +434,182 @@ function createCommunityServer(engine, base) {
             return { nick: r.nick, hours, now: presence.has(r.device_id) ? presence.get(r.device_id).hourId : null };
           });
           return send(200, { name: choir.name, code, date: theDate, members });
+        }
+
+        /* ---------- Espacios (comunidades de oficios) ---------- */
+        if (api === '/api/spaces' && req.method === 'POST') {
+          const deviceId = clean(body.deviceId, 64);
+          const nick = clean(body.nick, 20);
+          const name = clean(body.name, 60);
+          if (!deviceId || nick.length < 2 || !name) return send(400, { error: 'Faltan datos (nombre del espacio y tu apodo).' });
+          if (!rateOk(ip)) return send(429, { error: 'Demasiadas peticiones' });
+          const codeAdmin = uniqueCode(8), codeMember = uniqueCode(8), codeGuest = uniqueCode(8);
+          const now = Date.now();
+          const info = d.prepare('INSERT INTO spaces (name, code_admin, code_member, code_guest, created_at) VALUES (?,?,?,?,?)')
+            .run(name, codeAdmin, codeMember, codeGuest, now);
+          const spaceId = Number(info.lastInsertRowid);
+          d.prepare('INSERT INTO space_members (space_id, device_id, nick, role, joined_at) VALUES (?,?,?,?,?)')
+            .run(spaceId, deviceId, nick, 'admin', now);
+          return send(200, { id: spaceId, name, role: 'admin', codeAdmin, codeMember, codeGuest });
+        }
+        if (api === '/api/spaces/join' && req.method === 'POST') {
+          const deviceId = clean(body.deviceId, 64);
+          const nick = clean(body.nick, 20);
+          const code = clean(body.code, 12).toUpperCase();
+          if (!deviceId || nick.length < 2 || !code) return send(400, { error: 'Faltan datos (código y tu apodo).' });
+          if (!rateOk(ip)) return send(429, { error: 'Demasiadas peticiones' });
+          const space = d.prepare('SELECT * FROM spaces WHERE code_admin = ? OR code_member = ? OR code_guest = ?').get(code, code, code);
+          if (!space) return send(404, { error: 'No existe ningún espacio con ese código.' });
+          const codeRole = code === space.code_admin ? 'admin' : (code === space.code_member ? 'member' : 'invitado');
+          const rank = { invitado: 0, member: 1, editor: 2, admin: 3 };
+          const existingRole = memberRole(space.id, deviceId);
+          const finalRole = existingRole && rank[existingRole] >= rank[codeRole] ? existingRole : codeRole;
+          if (existingRole) {
+            d.prepare('UPDATE space_members SET role = ?, nick = ? WHERE space_id = ? AND device_id = ?').run(finalRole, nick, space.id, deviceId);
+          } else {
+            d.prepare('INSERT INTO space_members (space_id, device_id, nick, role, joined_at) VALUES (?,?,?,?,?)').run(space.id, deviceId, nick, finalRole, Date.now());
+          }
+          return send(200, { id: space.id, name: space.name, role: finalRole });
+        }
+        if (api === '/api/spaces/mine' && req.method === 'GET') {
+          const deviceId = clean(url.searchParams.get('deviceId'), 64);
+          const rows = d.prepare(
+            `SELECT s.id, s.name, m.role FROM spaces s JOIN space_members m ON m.space_id = s.id
+             WHERE m.device_id = ? ORDER BY s.created_at DESC`
+          ).all(deviceId);
+          return send(200, { spaces: rows });
+        }
+        const spaceMatch = api.match(/^\/api\/spaces\/(\d+)$/);
+        if (spaceMatch && req.method === 'GET') {
+          const spaceId = +spaceMatch[1];
+          const deviceId = clean(url.searchParams.get('deviceId'), 64);
+          const role = memberRole(spaceId, deviceId);
+          if (!role) return send(403, { error: 'No perteneces a este espacio.' });
+          const space = d.prepare('SELECT id, name FROM spaces WHERE id = ?').get(spaceId);
+          if (!space) return send(404, { error: 'No existe ese espacio.' });
+          const out = { id: space.id, name: space.name, role };
+          if (role === 'admin') {
+            const full = d.prepare('SELECT code_admin, code_member, code_guest FROM spaces WHERE id = ?').get(spaceId);
+            out.codeAdmin = full.code_admin; out.codeMember = full.code_member; out.codeGuest = full.code_guest;
+          }
+          return send(200, out);
+        }
+
+        /* ---------- Oficios de un espacio ---------- */
+        const officesMatch = api.match(/^\/api\/spaces\/(\d+)\/offices$/);
+        if (officesMatch && req.method === 'GET') {
+          const spaceId = +officesMatch[1];
+          const deviceId = clean(url.searchParams.get('deviceId'), 64);
+          const role = memberRole(spaceId, deviceId);
+          if (!role) return send(403, { error: 'No perteneces a este espacio.' });
+          const rows = canEdit(role)
+            ? d.prepare('SELECT id, nombre, estado, version, updated_at FROM space_offices WHERE space_id = ? ORDER BY updated_at DESC').all(spaceId)
+            : d.prepare("SELECT id, nombre, estado, version, updated_at FROM space_offices WHERE space_id = ? AND estado = 'publicado' ORDER BY updated_at DESC").all(spaceId);
+          return send(200, { offices: rows });
+        }
+        if (officesMatch && req.method === 'POST') {
+          const spaceId = +officesMatch[1];
+          const deviceId = clean(body.deviceId, 64);
+          const role = memberRole(spaceId, deviceId);
+          if (!canEdit(role)) return send(403, { error: 'No tienes permiso para editar oficios en este espacio.' });
+          if (!rateOk(ip)) return send(429, { error: 'Demasiadas peticiones' });
+          const nombre = clean(body.nombre, 80);
+          if (!nombre) return send(400, { error: 'Ponle un nombre al oficio.' });
+          const piezas = JSON.stringify(Array.isArray(body.piezas) ? body.piezas : []);
+          const now = Date.now();
+          if (body.id) {
+            const existing = d.prepare('SELECT * FROM space_offices WHERE id = ? AND space_id = ?').get(+body.id, spaceId);
+            if (!existing) return send(404, { error: 'No existe ese oficio.' });
+            const version = existing.version + 1;
+            d.prepare('UPDATE space_offices SET nombre = ?, piezas = ?, version = ?, updated_by = ?, updated_at = ? WHERE id = ?')
+              .run(nombre, piezas, version, deviceId, now, existing.id);
+            snapshotVersion({ id: existing.id, nombre, piezas, version, updated_by: deviceId }, 'edición');
+            if (existing.estado === 'publicado') push('space_update', { spaceId, officeId: existing.id });
+            return send(200, { id: existing.id, version, estado: existing.estado });
+          }
+          const info = d.prepare('INSERT INTO space_offices (space_id, nombre, piezas, estado, version, updated_by, updated_at) VALUES (?,?,?,?,?,?,?)')
+            .run(spaceId, nombre, piezas, 'borrador', 1, deviceId, now);
+          const officeId = Number(info.lastInsertRowid);
+          snapshotVersion({ id: officeId, nombre, piezas, version: 1, updated_by: deviceId }, 'creación');
+          return send(200, { id: officeId, version: 1, estado: 'borrador' });
+        }
+        const officeOneMatch = api.match(/^\/api\/spaces\/(\d+)\/offices\/(\d+)$/);
+        if (officeOneMatch && req.method === 'GET') {
+          const spaceId = +officeOneMatch[1], officeId = +officeOneMatch[2];
+          const deviceId = clean(url.searchParams.get('deviceId'), 64);
+          const role = memberRole(spaceId, deviceId);
+          if (!role) return send(403, { error: 'No perteneces a este espacio.' });
+          const office = d.prepare('SELECT * FROM space_offices WHERE id = ? AND space_id = ?').get(officeId, spaceId);
+          if (!office) return send(404, { error: 'No existe ese oficio.' });
+          if (office.estado !== 'publicado' && !canEdit(role)) return send(403, { error: 'Este oficio todavía no está publicado.' });
+          return send(200, { id: office.id, nombre: office.nombre, piezas: JSON.parse(office.piezas), estado: office.estado, version: office.version, updated_at: office.updated_at });
+        }
+        const estadoMatch = api.match(/^\/api\/spaces\/(\d+)\/offices\/(\d+)\/estado$/);
+        if (estadoMatch && req.method === 'POST') {
+          const spaceId = +estadoMatch[1], officeId = +estadoMatch[2];
+          const deviceId = clean(body.deviceId, 64);
+          const role = memberRole(spaceId, deviceId);
+          if (role !== 'admin') return send(403, { error: 'Solo un administrador puede publicar o retirar un oficio.' });
+          const office = d.prepare('SELECT id FROM space_offices WHERE id = ? AND space_id = ?').get(officeId, spaceId);
+          if (!office) return send(404, { error: 'No existe ese oficio.' });
+          const estado = body.estado === 'publicado' ? 'publicado' : 'borrador';
+          d.prepare('UPDATE space_offices SET estado = ? WHERE id = ?').run(estado, officeId);
+          push('space_update', { spaceId, officeId });
+          return send(200, { ok: true, estado });
+        }
+        const versionesMatch = api.match(/^\/api\/spaces\/(\d+)\/offices\/(\d+)\/versiones$/);
+        if (versionesMatch && req.method === 'GET') {
+          const spaceId = +versionesMatch[1], officeId = +versionesMatch[2];
+          const deviceId = clean(url.searchParams.get('deviceId'), 64);
+          const role = memberRole(spaceId, deviceId);
+          if (!canEdit(role)) return send(403, { error: 'No tienes permiso para ver el historial.' });
+          const office = d.prepare('SELECT id FROM space_offices WHERE id = ? AND space_id = ?').get(officeId, spaceId);
+          if (!office) return send(404, { error: 'No existe ese oficio.' });
+          const rows = d.prepare('SELECT version, updated_by, note, created_at FROM space_office_versions WHERE office_id = ? ORDER BY version DESC').all(officeId);
+          return send(200, { versiones: rows });
+        }
+        const restaurarMatch = api.match(/^\/api\/spaces\/(\d+)\/offices\/(\d+)\/restaurar$/);
+        if (restaurarMatch && req.method === 'POST') {
+          const spaceId = +restaurarMatch[1], officeId = +restaurarMatch[2];
+          const deviceId = clean(body.deviceId, 64);
+          const role = memberRole(spaceId, deviceId);
+          if (!canEdit(role)) return send(403, { error: 'No tienes permiso para restaurar versiones.' });
+          const office = d.prepare('SELECT * FROM space_offices WHERE id = ? AND space_id = ?').get(officeId, spaceId);
+          if (!office) return send(404, { error: 'No existe ese oficio.' });
+          const old = d.prepare('SELECT * FROM space_office_versions WHERE office_id = ? AND version = ?').get(officeId, +body.version);
+          if (!old) return send(404, { error: 'No existe esa versión.' });
+          const newVersion = office.version + 1;
+          d.prepare('UPDATE space_offices SET nombre = ?, piezas = ?, version = ?, updated_by = ?, updated_at = ? WHERE id = ?')
+            .run(old.nombre, old.piezas, newVersion, deviceId, Date.now(), officeId);
+          snapshotVersion({ id: officeId, nombre: old.nombre, piezas: old.piezas, version: newVersion, updated_by: deviceId }, 'restaurada v' + old.version);
+          if (office.estado === 'publicado') push('space_update', { spaceId, officeId });
+          return send(200, { ok: true, version: newVersion });
+        }
+
+        /* ---------- Miembros y roles ---------- */
+        const membersMatch = api.match(/^\/api\/spaces\/(\d+)\/members$/);
+        if (membersMatch && req.method === 'GET') {
+          const spaceId = +membersMatch[1];
+          const deviceId = clean(url.searchParams.get('deviceId'), 64);
+          const role = memberRole(spaceId, deviceId);
+          if (role !== 'admin') return send(403, { error: 'Solo un administrador puede ver los miembros.' });
+          const rows = d.prepare('SELECT device_id, nick, role, joined_at FROM space_members WHERE space_id = ? ORDER BY joined_at ASC').all(spaceId);
+          return send(200, { members: rows });
+        }
+        const roleMatch = api.match(/^\/api\/spaces\/(\d+)\/members\/([^/]+)\/rol$/);
+        if (roleMatch && req.method === 'POST') {
+          const spaceId = +roleMatch[1], targetDevice = decodeURIComponent(roleMatch[2]);
+          const deviceId = clean(body.deviceId, 64);
+          const actorRole = memberRole(spaceId, deviceId);
+          if (actorRole !== 'admin') return send(403, { error: 'Solo un administrador puede cambiar roles.' });
+          const nuevoRol = ['admin', 'editor', 'member', 'invitado'].includes(body.rol) ? body.rol : null;
+          if (!nuevoRol) return send(400, { error: 'Rol no válido.' });
+          if (targetDevice === deviceId && nuevoRol !== 'admin') {
+            const admins = d.prepare("SELECT COUNT(*) c FROM space_members WHERE space_id = ? AND role = 'admin'").get(spaceId).c;
+            if (admins <= 1) return send(400, { error: 'Debe quedar siempre al menos un administrador: nombra a otro antes de dejar de serlo.' });
+          }
+          d.prepare('UPDATE space_members SET role = ? WHERE space_id = ? AND device_id = ?').run(nuevoRol, spaceId, targetDevice);
+          return send(200, { ok: true });
         }
 
         return send(404, { error: 'No encontrado' });

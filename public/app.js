@@ -111,6 +111,22 @@
     if (h.startsWith('oficios/rezar/')) return oficioRezarView(h.split('oficios/rezar/')[1]);
     if (h.startsWith('oficios/editar/')) return oficioEditView(h.split('oficios/editar/')[1]);
     if (h.startsWith('oficios/importar/')) return oficioImportarView(h.split('oficios/importar/')[1]);
+    if (!GH && h === 'comunidad-oficios') return comunidadOficiosView();
+    if (!GH && /^comunidad-oficios\/(\d+)\/miembros$/.test(h)) return comunidadMiembrosView(+h.match(/^comunidad-oficios\/(\d+)\/miembros$/)[1]);
+    if (!GH && /^comunidad-oficios\/(\d+)\/nuevo$/.test(h)) return comunidadOficioEditView(+h.match(/^comunidad-oficios\/(\d+)\/nuevo$/)[1], null);
+    if (!GH && /^comunidad-oficios\/(\d+)\/editar\/(\d+)$/.test(h)) {
+      const mm = h.match(/^comunidad-oficios\/(\d+)\/editar\/(\d+)$/);
+      return comunidadOficioEditView(+mm[1], +mm[2]);
+    }
+    if (!GH && /^comunidad-oficios\/(\d+)\/rezar\/(\d+)$/.test(h)) {
+      const mm = h.match(/^comunidad-oficios\/(\d+)\/rezar\/(\d+)$/);
+      return comunidadOficioRezarView(+mm[1], +mm[2]);
+    }
+    if (!GH && /^comunidad-oficios\/(\d+)\/versiones\/(\d+)$/.test(h)) {
+      const mm = h.match(/^comunidad-oficios\/(\d+)\/versiones\/(\d+)$/);
+      return comunidadVersionesView(+mm[1], +mm[2]);
+    }
+    if (!GH && /^comunidad-oficios\/(\d+)$/.test(h)) return comunidadEspacioView(+h.match(/^comunidad-oficios\/(\d+)$/)[1]);
     return homeView();
   }
 
@@ -1078,6 +1094,345 @@
       const saved = guardarOficioImportado(payload);
       toast('Oficio guardado en Mis oficios personalizados.');
       location.hash = '#oficios/editar/' + encodeURIComponent(saved.id);
+    });
+  }
+
+  /* ====================================================================
+     Mi comunidad (Fase 2): oficios compartidos entre dispositivos y
+     personas, con administrador, roles y versiones. Requiere el servidor
+     (Render): no existe en la copia estática de GitHub Pages/ramonfandos.es,
+     igual que "Comunidad de rezo". Un código de acceso hace de identidad,
+     como en los coros -sin correo ni cuenta-.
+     ==================================================================== */
+  async function comunidadOficiosView() {
+    const myGen = navGen;
+    let html = `<section class="day-hero misal-hero">
+      <div class="now-label">Comunidad</div>
+      <h1>Mi comunidad</h1>
+      <div class="date-line">oficios compartidos, con administrador y versiones</div>
+    </section>`;
+    html += `<div class="btn-row"><a class="btn" href="#hoy">&#8592; Hoy</a></div>`;
+    html += `<div class="card">
+      <p class="text">Crea un espacio para tu comunidad (monasterio, parroquia, grupo de oración) y comparte oficios que todos recéis iguales, con quien decidas como administrador. Es un espacio aparte: no sustituye tu rezo diario ni tus oficios personales.</p>
+    </div>`;
+    html += `<div class="card">
+      <div class="rubric">Crear una comunidad</div>
+      <input type="text" id="com-crear-nombre" class="input-line" placeholder="Nombre del espacio (ej. Monasterio de...)">
+      <input type="text" id="com-crear-nick" class="input-line" placeholder="Tu nombre o apodo" style="margin-top:8px">
+      <div class="btn-row"><button type="button" class="btn primary" id="com-crear-btn">Crear</button></div>
+    </div>`;
+    html += `<div class="card">
+      <div class="rubric">Unirme con un código</div>
+      <input type="text" id="com-unir-codigo" class="input-line" placeholder="Código de acceso">
+      <input type="text" id="com-unir-nick" class="input-line" placeholder="Tu nombre o apodo" style="margin-top:8px">
+      <div class="btn-row"><button type="button" class="btn primary" id="com-unir-btn">Unirme</button></div>
+    </div>`;
+    html += `<div class="section-title">Mis espacios</div>`;
+    html += `<div id="com-lista"><div class="note-box">Cargando...</div></div>`;
+    view.innerHTML = html;
+
+    view.querySelector('#com-crear-btn').addEventListener('click', async () => {
+      const nombre = view.querySelector('#com-crear-nombre').value.trim();
+      const nick = view.querySelector('#com-crear-nick').value.trim();
+      if (!nombre || nick.length < 2) { toast('Pon el nombre del espacio y tu apodo.'); return; }
+      try {
+        const r = await Community.spaces.create(nick, nombre);
+        toast('Comunidad creada. Guarda bien los códigos que verás ahora.');
+        location.hash = '#comunidad-oficios/' + r.id;
+      } catch (e) { toast(e.message || 'No se pudo crear la comunidad.'); }
+    });
+    view.querySelector('#com-unir-btn').addEventListener('click', async () => {
+      const codigo = view.querySelector('#com-unir-codigo').value.trim();
+      const nick = view.querySelector('#com-unir-nick').value.trim();
+      if (!codigo || nick.length < 2) { toast('Pon el código y tu apodo.'); return; }
+      try {
+        const r = await Community.spaces.join(nick, codigo);
+        toast('Te has unido a «' + r.name + '».');
+        location.hash = '#comunidad-oficios/' + r.id;
+      } catch (e) { toast(e.message || 'No se pudo unir a esa comunidad.'); }
+    });
+
+    try {
+      const r = await Community.spaces.mine();
+      if (myGen !== navGen) return;
+      const cont = view.querySelector('#com-lista');
+      if (!cont) return;
+      if (!r.spaces.length) { cont.innerHTML = '<div class="note-box">Todavía no perteneces a ninguna comunidad.</div>'; return; }
+      const ROLE_LABEL = { admin: 'Administrador', editor: 'Editor', member: 'Miembro', invitado: 'Invitado' };
+      cont.innerHTML = r.spaces.map((s) => `<a class="hour-card" href="#comunidad-oficios/${s.id}">
+        <div class="hour-card-head"><span class="hour-name">${Liturgy.esc(s.name)}</span></div>
+        <div class="hour-card-body"><div class="hour-ant">${ROLE_LABEL[s.role] || s.role}</div></div>
+      </a>`).join('');
+    } catch (e) {
+      if (myGen !== navGen) return;
+      const cont = view.querySelector('#com-lista');
+      if (cont) cont.innerHTML = '<div class="note-box">Sin conexión con el servidor de comunidad.</div>';
+    }
+  }
+
+  async function comunidadEspacioView(spaceId) {
+    const myGen = navGen;
+    view.innerHTML = '<div class="note-box">Cargando comunidad...</div>';
+    let info, offs;
+    try {
+      info = await Community.spaces.get(spaceId);
+      offs = await Community.spaces.offices(spaceId);
+    } catch (e) {
+      if (myGen !== navGen) return;
+      view.innerHTML = errBox(new Error(e.message || 'No se pudo cargar esta comunidad.'));
+      return;
+    }
+    if (myGen !== navGen) return;
+    const canEditHere = info.role === 'admin' || info.role === 'editor';
+    let html = `<div class="prayer-toolbar">
+      <button class="icon-btn" onclick="location.hash='#comunidad-oficios'" aria-label="Volver">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2z"/></svg>
+      </button>
+      <div class="tt"><h1>${Liturgy.esc(info.name)}</h1><div class="sub">Tu rol: ${Liturgy.esc(info.role)}</div></div>
+    </div>`;
+    if (info.role === 'admin') {
+      html += `<div class="card">
+        <div class="rubric">Códigos de acceso</div>
+        <p class="comm-sub">Compártelos con quien corresponda. El de administrador da control total: no lo repartas a la ligera.</p>
+        <div class="btn-row"><button type="button" class="btn" data-copy-code="${info.codeAdmin}">Administrador: ${info.codeAdmin}</button></div>
+        <div class="btn-row"><button type="button" class="btn" data-copy-code="${info.codeMember}">Miembro: ${info.codeMember}</button></div>
+        <div class="btn-row"><button type="button" class="btn" data-copy-code="${info.codeGuest}">Invitado (solo lectura): ${info.codeGuest}</button></div>
+        <div class="btn-row"><a class="btn" href="#comunidad-oficios/${spaceId}/miembros">Gestionar miembros y roles</a></div>
+      </div>`;
+    }
+    if (canEditHere) html += `<div class="btn-row"><a class="btn primary" href="#comunidad-oficios/${spaceId}/nuevo">&#10011; Crear oficio</a></div>`;
+    html += `<div class="section-title">Oficios</div>`;
+    if (!offs.offices.length) {
+      html += `<div class="note-box">Todavía no hay oficios ${canEditHere ? 'creados' : 'publicados'} en esta comunidad.</div>`;
+    } else {
+      for (const o of offs.offices) {
+        const badge = o.estado === 'publicado' ? '<b style="color:var(--accent-ink)">Publicado</b>' : '<span class="comm-sub">Borrador</span>';
+        html += `<div class="hour-card">
+          <div class="hour-card-head"><span class="hour-name">${Liturgy.esc(o.nombre)}</span></div>
+          <div class="hour-card-body"><div class="hour-ant">${badge} · v${o.version}</div></div>
+          <div class="btn-row" style="margin-bottom:0;margin-top:8px">
+            ${o.estado === 'publicado' ? `<a class="btn primary" href="#comunidad-oficios/${spaceId}/rezar/${o.id}">Rezar</a>` : ''}
+            ${canEditHere ? `<a class="btn" href="#comunidad-oficios/${spaceId}/editar/${o.id}">Editar</a>` : ''}
+            ${canEditHere ? `<a class="btn" href="#comunidad-oficios/${spaceId}/versiones/${o.id}">Historial</a>` : ''}
+            ${info.role === 'admin' ? `<button type="button" class="btn" data-toggle-estado="${o.id}" data-estado-actual="${o.estado}">${o.estado === 'publicado' ? 'Retirar' : 'Publicar'}</button>` : ''}
+          </div>
+        </div>`;
+      }
+    }
+    view.innerHTML = html;
+
+    view.querySelectorAll('[data-copy-code]').forEach((b) => {
+      b.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(b.dataset.copyCode); toast('Código copiado.'); }
+        catch (e) { prompt('Copia este código:', b.dataset.copyCode); }
+      });
+    });
+    view.querySelectorAll('[data-toggle-estado]').forEach((b) => {
+      b.addEventListener('click', async () => {
+        const nuevoEstado = b.dataset.estadoActual === 'publicado' ? 'borrador' : 'publicado';
+        try {
+          await Community.spaces.setEstado(spaceId, +b.dataset.toggleEstado, nuevoEstado);
+          toast(nuevoEstado === 'publicado' ? 'Oficio publicado.' : 'Oficio retirado.');
+          comunidadEspacioView(spaceId);
+        } catch (e) { toast(e.message || 'No se pudo cambiar el estado.'); }
+      });
+    });
+  }
+
+  async function comunidadOficioEditView(spaceId, officeId) {
+    const isNew = !officeId;
+    let office = { nombre: '', piezas: [] };
+    if (!isNew) {
+      try { office = await Community.spaces.office(spaceId, officeId); }
+      catch (e) { view.innerHTML = errBox(new Error(e.message || 'No se pudo cargar ese oficio.')); return; }
+    }
+    let piezas = (office.piezas || []).map((p) => Object.assign({}, p));
+
+    function piezaRow(p, i, total) {
+      const tipoOpts = CustomOffice.PIEZA_TIPOS.map((t) => `<option value="${t.id}" ${p.tipo === t.id ? 'selected' : ''}>${t.label}</option>`).join('');
+      const tipoMeta = CustomOffice.PIEZA_TIPOS.find((t) => t.id === p.tipo);
+      const needsRef = !!(tipoMeta && tipoMeta.needsRef);
+      return `<div class="card oficio-pieza" data-i="${i}">
+        <div class="btn-row" style="margin-bottom:8px">
+          <select class="date-val pieza-tipo">${tipoOpts}</select>
+          <button type="button" class="btn small pieza-up" title="Subir" ${i === 0 ? 'disabled' : ''}>&#8593;</button>
+          <button type="button" class="btn small pieza-down" title="Bajar" ${i === total - 1 ? 'disabled' : ''}>&#8595;</button>
+          <button type="button" class="btn small pieza-del" title="Quitar">&#10005;</button>
+        </div>
+        ${needsRef ? `<input type="text" class="pieza-ref input-line" placeholder="Referencia" value="${Liturgy.esc(p.ref || '')}">` : ''}
+        <textarea class="pieza-texto" placeholder="Texto de esta pieza...">${Liturgy.esc(p.texto || '')}</textarea>
+      </div>`;
+    }
+    function wirePiezas() {
+      view.querySelectorAll('.oficio-pieza').forEach((el) => {
+        const i = parseInt(el.dataset.i, 10);
+        el.querySelector('.pieza-tipo').addEventListener('change', (e) => { piezas[i].tipo = e.target.value; renderPiezas(); });
+        const refEl = el.querySelector('.pieza-ref');
+        if (refEl) refEl.addEventListener('input', (e) => { piezas[i].ref = e.target.value; });
+        el.querySelector('.pieza-texto').addEventListener('input', (e) => { piezas[i].texto = e.target.value; });
+        el.querySelector('.pieza-del').addEventListener('click', () => { piezas.splice(i, 1); renderPiezas(); });
+        const up = el.querySelector('.pieza-up');
+        if (up) up.addEventListener('click', () => { if (i > 0) { const t = piezas[i - 1]; piezas[i - 1] = piezas[i]; piezas[i] = t; renderPiezas(); } });
+        const down = el.querySelector('.pieza-down');
+        if (down) down.addEventListener('click', () => { if (i < piezas.length - 1) { const t = piezas[i + 1]; piezas[i + 1] = piezas[i]; piezas[i] = t; renderPiezas(); } });
+      });
+    }
+    function renderPiezas() {
+      const cont = view.querySelector('#oficio-piezas');
+      if (!cont) return;
+      cont.innerHTML = piezas.length ? piezas.map((p, i) => piezaRow(p, i, piezas.length)).join('') : '<div class="note-box">Añade la primera pieza.</div>';
+      wirePiezas();
+    }
+
+    let html = `<div class="prayer-toolbar">
+      <button class="icon-btn" onclick="location.hash='#comunidad-oficios/${spaceId}'" aria-label="Volver">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2z"/></svg>
+      </button>
+      <div class="tt"><h1>${isNew ? 'Nuevo oficio' : 'Editar oficio'}</h1></div>
+    </div>
+    <div class="card">
+      <label class="pick" style="display:block">Nombre del oficio
+        <input type="text" id="oficio-nombre" class="input-line" value="${Liturgy.esc(office.nombre)}" placeholder="Ej. Vísperas de la comunidad">
+      </label>
+    </div>
+    <div class="card">
+      <div class="rubric">Traer piezas de una hora oficial</div>
+      <div class="btn-row">
+        <select id="oficio-plantilla" class="date-val">${Liturgy.HOURS.map((h) => `<option value="${h.id}">${h.name}</option>`).join('')}</select>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn primary" id="oficio-importar">Importar contenido de hoy</button>
+        <button type="button" class="btn" id="oficio-cargar-plantilla">Cargar huecos en blanco</button>
+      </div>
+    </div>
+    <div class="section-title">Piezas del oficio</div>
+    <div id="oficio-piezas"></div>
+    <div class="btn-row"><button type="button" class="btn" id="oficio-add-pieza">&#10011; Añadir pieza</button></div>
+    <div class="btn-row"><button type="button" class="btn primary" id="oficio-guardar">${isNew ? 'Crear oficio' : 'Guardar cambios (nueva versión)'}</button></div>`;
+
+    view.innerHTML = html;
+    renderPiezas();
+
+    view.querySelector('#oficio-add-pieza').addEventListener('click', () => { piezas.push({ tipo: 'texto', texto: '' }); renderPiezas(); });
+    view.querySelector('#oficio-cargar-plantilla').addEventListener('click', () => {
+      const hourId = view.querySelector('#oficio-plantilla').value;
+      if (piezas.length && !confirm('¿Añadir los huecos de esa hora al final?')) return;
+      piezas = piezas.concat(CustomOffice.templateFor(hourId));
+      renderPiezas();
+    });
+    view.querySelector('#oficio-importar').addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget;
+      const hourId = view.querySelector('#oficio-plantilla').value;
+      if (piezas.length && !confirm('¿Añadir el contenido de hoy de esa hora al final?')) return;
+      btn.disabled = true; btn.textContent = 'Importando...';
+      try {
+        const importadas = await importarHoraOficial(hourId, currentDate);
+        if (!importadas.length) { toast('No se pudo traer el contenido de esa hora hoy.'); return; }
+        piezas = piezas.concat(importadas);
+        renderPiezas();
+      } finally { btn.disabled = false; btn.textContent = 'Importar contenido de hoy'; }
+    });
+    view.querySelector('#oficio-guardar').addEventListener('click', async () => {
+      const nombre = view.querySelector('#oficio-nombre').value.trim();
+      if (!nombre) { toast('Ponle un nombre al oficio.'); return; }
+      try {
+        const payload = { nombre, piezas };
+        if (!isNew) payload.id = officeId;
+        const r = await Community.spaces.saveOffice(spaceId, payload);
+        toast(isNew ? 'Oficio creado como borrador.' : 'Cambios guardados (v' + r.version + ').');
+        location.hash = '#comunidad-oficios/' + spaceId;
+      } catch (e) { toast(e.message || 'No se pudo guardar.'); }
+    });
+  }
+
+  async function comunidadOficioRezarView(spaceId, officeId) {
+    const cacheKey = 'liturgia.spaceoffice.cache.' + spaceId + '.' + officeId;
+    let office = null;
+    try {
+      office = await Community.spaces.office(spaceId, officeId);
+      localStorage.setItem(cacheKey, JSON.stringify(office));
+    } catch (e) {
+      try { office = JSON.parse(localStorage.getItem(cacheKey) || 'null'); } catch (e2) { office = null; }
+      if (office) toast('Sin conexión: mostrando la última copia guardada.');
+    }
+    if (!office) { view.innerHTML = errBox(new Error('No se pudo cargar este oficio (sin conexión y sin copia previa).')); return; }
+    let html = `<div class="prayer-toolbar">
+      <button class="icon-btn" onclick="location.hash='#comunidad-oficios/${spaceId}'" aria-label="Volver">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2z"/></svg>
+      </button>
+      <div class="tt"><h1>${Liturgy.esc(office.nombre)}</h1><div class="sub">${fmtDate(currentDate)} · oficio de la comunidad</div></div>
+    </div>`;
+    html += customOfficeHtml(office);
+    view.innerHTML = html;
+    asAppend();
+    attachFavStars();
+    enhancePrayerText();
+    attachAudioNotes();
+  }
+
+  async function comunidadVersionesView(spaceId, officeId) {
+    let data;
+    try { data = await Community.spaces.versiones(spaceId, officeId); }
+    catch (e) { view.innerHTML = errBox(new Error(e.message || 'No se pudo cargar el historial.')); return; }
+    let html = `<div class="prayer-toolbar">
+      <button class="icon-btn" onclick="location.hash='#comunidad-oficios/${spaceId}'" aria-label="Volver">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2z"/></svg>
+      </button>
+      <div class="tt"><h1>Historial de versiones</h1></div>
+    </div>`;
+    if (!data.versiones.length) html += '<div class="note-box">Sin historial todavía.</div>';
+    else {
+      for (const v of data.versiones) {
+        html += `<div class="hour-card">
+          <div class="hour-card-head"><span class="hour-name">Versión ${v.version}</span></div>
+          <div class="hour-card-body"><div class="hour-ant">${Liturgy.esc(v.note || '')} · ${new Date(v.created_at).toLocaleString('es-ES')}</div></div>
+          <div class="btn-row" style="margin-bottom:0;margin-top:8px"><button type="button" class="btn" data-restore="${v.version}">Restaurar esta versión</button></div>
+        </div>`;
+      }
+    }
+    view.innerHTML = html;
+    view.querySelectorAll('[data-restore]').forEach((b) => {
+      b.addEventListener('click', async () => {
+        if (!confirm('¿Restaurar la versión ' + b.dataset.restore + '? Se creará una nueva versión con ese contenido.')) return;
+        try {
+          await Community.spaces.restaurar(spaceId, officeId, +b.dataset.restore);
+          toast('Versión restaurada.');
+          location.hash = '#comunidad-oficios/' + spaceId;
+        } catch (e) { toast(e.message || 'No se pudo restaurar.'); }
+      });
+    });
+  }
+
+  async function comunidadMiembrosView(spaceId) {
+    let data;
+    try { data = await Community.spaces.members(spaceId); }
+    catch (e) { view.innerHTML = errBox(new Error(e.message || 'No se pudo cargar los miembros.')); return; }
+    const ROLES = ['admin', 'editor', 'member', 'invitado'];
+    const ROLE_LABEL = { admin: 'Administrador', editor: 'Editor', member: 'Miembro', invitado: 'Invitado' };
+    let html = `<div class="prayer-toolbar">
+      <button class="icon-btn" onclick="location.hash='#comunidad-oficios/${spaceId}'" aria-label="Volver">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2z"/></svg>
+      </button>
+      <div class="tt"><h1>Miembros</h1></div>
+    </div>`;
+    for (const m of data.members) {
+      html += `<div class="hour-card">
+        <div class="hour-card-head"><span class="hour-name">${Liturgy.esc(m.nick)}</span></div>
+        <div class="hour-card-body">
+          <select class="date-val" data-role-for="${Liturgy.esc(m.device_id)}">
+            ${ROLES.map((r) => `<option value="${r}" ${m.role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}
+          </select>
+        </div>
+      </div>`;
+    }
+    view.innerHTML = html;
+    view.querySelectorAll('[data-role-for]').forEach((sel) => {
+      sel.addEventListener('change', async () => {
+        try {
+          await Community.spaces.setRole(spaceId, sel.dataset.roleFor, sel.value);
+          toast('Rol actualizado.');
+        } catch (e) { toast(e.message || 'No se pudo cambiar el rol.'); comunidadMiembrosView(spaceId); }
+      });
     });
   }
 
@@ -3399,6 +3754,13 @@
     if (!GH && typeof Community !== 'undefined') {
       Community.ensureSocket();
       Community.on('chorevt', onChorevt);
+      Community.on('space_update', () => {
+        const h = parseHash();
+        if (h.startsWith('comunidad-oficios')) {
+          toast('Se ha actualizado un oficio de tu comunidad.');
+          route();
+        }
+      });
     }
     document.addEventListener('visibilitychange', () => { if (document.hidden) asStop(); });
     wireNativeBackButton();

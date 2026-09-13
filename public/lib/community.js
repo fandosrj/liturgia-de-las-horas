@@ -121,6 +121,25 @@
     presence: (code, date) => api(BASE + '/api/choirs/' + code + '/presence?deviceId=' + encodeURIComponent(DEVICE) + '&date=' + encodeURIComponent(date))
   };
 
+  /* --------------- Mis comunidades (oficios compartidos, Fase 2) ---------------
+     Un código de acceso hace de identidad, como en los coros: no hace falta
+     correo ni cuenta. Tres niveles por espacio (admin/miembro/invitado); el
+     administrador puede además nombrar editores a mano. */
+  const spaces = {
+    create: (nick, name) => api(BASE + '/api/spaces', { body: { deviceId: DEVICE, nick, name } }),
+    join: (nick, code) => api(BASE + '/api/spaces/join', { body: { deviceId: DEVICE, nick, code } }),
+    mine: () => api(BASE + '/api/spaces/mine?deviceId=' + encodeURIComponent(DEVICE)),
+    get: (id) => api(BASE + '/api/spaces/' + id + '?deviceId=' + encodeURIComponent(DEVICE)),
+    offices: (id) => api(BASE + '/api/spaces/' + id + '/offices?deviceId=' + encodeURIComponent(DEVICE)),
+    office: (id, officeId) => api(BASE + '/api/spaces/' + id + '/offices/' + officeId + '?deviceId=' + encodeURIComponent(DEVICE)),
+    saveOffice: (id, office) => api(BASE + '/api/spaces/' + id + '/offices', { body: Object.assign({ deviceId: DEVICE }, office) }),
+    setEstado: (id, officeId, estado) => api(BASE + '/api/spaces/' + id + '/offices/' + officeId + '/estado', { body: { deviceId: DEVICE, estado } }),
+    versiones: (id, officeId) => api(BASE + '/api/spaces/' + id + '/offices/' + officeId + '/versiones?deviceId=' + encodeURIComponent(DEVICE)),
+    restaurar: (id, officeId, version) => api(BASE + '/api/spaces/' + id + '/offices/' + officeId + '/restaurar', { body: { deviceId: DEVICE, version } }),
+    members: (id) => api(BASE + '/api/spaces/' + id + '/members?deviceId=' + encodeURIComponent(DEVICE)),
+    setRole: (id, targetDevice, rol) => api(BASE + '/api/spaces/' + id + '/members/' + encodeURIComponent(targetDevice) + '/rol', { body: { deviceId: DEVICE, rol } })
+  };
+
   /* --------------------------- Socket en vivo --------------------------- */
   let socket = null;
   let reconnectTimer = null;
@@ -166,4 +185,5 @@
   Li.ensureSocket = ensureSocket;
   Li.intentions = intentions;
   Li.choirs = choirs;
+  Li.spaces = spaces;
 })();
