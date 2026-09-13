@@ -110,6 +110,7 @@
     if (h === 'oficios/nuevo') return oficioEditView('nuevo');
     if (h.startsWith('oficios/rezar/')) return oficioRezarView(h.split('oficios/rezar/')[1]);
     if (h.startsWith('oficios/editar/')) return oficioEditView(h.split('oficios/editar/')[1]);
+    if (h.startsWith('oficios/importar/')) return oficioImportarView(h.split('oficios/importar/')[1]);
     return homeView();
   }
 
@@ -998,13 +999,99 @@
     return piezas;
   }
 
+  /* ------ Compartir oficios entre dispositivos, sin servidor (Fase 1) ------
+     Un oficio se puede: descargar como archivo .json, importar desde un
+     archivo, o compartir como enlace (el contenido va codificado en el
+     propio enlace, no en ningún servidor). Al abrir un enlace o archivo
+     recibido, se pide confirmación antes de guardar nada. */
+  function slugify(s) {
+    return String(s || 'oficio').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'oficio';
+  }
+  function b64EncodeUtf8(str) { return btoa(unescape(encodeURIComponent(str))); }
+  function b64DecodeUtf8(b64) { return decodeURIComponent(escape(atob(b64))); }
+
+  function exportarOficioArchivo(office) {
+    const payload = { nombre: office.nombre, piezas: office.piezas || [] };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'oficio-' + slugify(office.nombre) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  function enlaceCompartirOficio(office) {
+    const payload = { nombre: office.nombre, piezas: office.piezas || [] };
+    const data = b64EncodeUtf8(JSON.stringify(payload));
+    return location.origin + location.pathname + '#oficios/importar/' + encodeURIComponent(data);
+  }
+
+  async function copiarEnlaceOficio(office) {
+    const url = enlaceCompartirOficio(office);
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('Enlace copiado. Compártelo por donde quieras.');
+    } catch (e) {
+      prompt('Copia este enlace para compartirlo:', url);
+    }
+  }
+
+  function guardarOficioImportado(payload) {
+    const office = {
+      nombre: (payload.nombre || 'Oficio importado').trim(),
+      piezas: Array.isArray(payload.piezas) ? payload.piezas : [],
+      vinculo: { activo: false, horaId: 'laudes', modo: 'siempre', mes: 1, dia: 1, patron: '' }
+    };
+    return CustomOffice.save(office);
+  }
+
+  // Recibido por enlace: se pide confirmación antes de guardar nada.
+  function oficioImportarView(rawData) {
+    let payload = null;
+    try { payload = JSON.parse(b64DecodeUtf8(decodeURIComponent(rawData))); } catch (e) { payload = null; }
+    if (!payload || typeof payload !== 'object') {
+      view.innerHTML = errBox(new Error('Este enlace de oficio no es válido o está dañado.'));
+      return;
+    }
+    const piezas = Array.isArray(payload.piezas) ? payload.piezas : [];
+    let html = `<section class="day-hero misal-hero">
+      <div class="now-label">Oficio recibido</div>
+      <h1>${Liturgy.esc(payload.nombre || 'Oficio sin nombre')}</h1>
+      <div class="date-line">${piezas.length} piezas · alguien te lo ha compartido</div>
+    </section>`;
+    html += `<div class="card">
+      <p class="text">Puedes revisarlo antes de guardarlo. Se añadirá a "Mis oficios personalizados" como uno nuevo, sin sustituir nada de tu rezo diario a menos que tú lo decidas después.</p>
+      <div class="btn-row" style="margin-bottom:0">
+        <button type="button" class="btn primary" id="importar-confirmar">Guardar en Mis oficios</button>
+        <a class="btn" href="#oficios">Cancelar</a>
+      </div>
+    </div>`;
+    html += `<div class="section-title">Vista previa</div>`;
+    html += customOfficeHtml({ nombre: payload.nombre, piezas });
+    view.innerHTML = html;
+    const btn = view.querySelector('#importar-confirmar');
+    if (btn) btn.addEventListener('click', () => {
+      const saved = guardarOficioImportado(payload);
+      toast('Oficio guardado en Mis oficios personalizados.');
+      location.hash = '#oficios/editar/' + encodeURIComponent(saved.id);
+    });
+  }
+
   async function oficiosView() {
     const myGen = navGen;
     const offices = (window.CustomOffice ? CustomOffice.list() : []);
     let html = `<div class="section-title">Mis oficios personalizados</div>
       <div class="card">
         <p class="text">Un programa aparte, independiente del rezo diario oficial: construye una hora completa desde cero -antífonas, salmos, lecturas, preces, oración- con tus propios textos y tu propia voz grabada. Si quieres, vincúlala a un momento del calendario para que te avise "hoy toca" -nunca sustituye lo que ya rezas cada día-.</p>
-        <div class="btn-row" style="margin-bottom:0"><a class="btn primary" href="#oficios/nuevo">&#10011; Crear oficio nuevo</a></div>
+        <div class="btn-row" style="margin-bottom:0">
+          <a class="btn primary" href="#oficios/nuevo">&#10011; Crear oficio nuevo</a>
+          <button type="button" class="btn" id="oficios-importar-btn">Importar desde archivo</button>
+        </div>
+        <input type="file" accept="application/json" id="oficios-importar-input" style="display:none">
       </div>`;
 
     try {
@@ -1048,6 +1135,24 @@
     }
     if (myGen !== navGen) return; // el usuario ya navegó a otra pantalla mientras se cargaba
     view.innerHTML = html;
+
+    const impBtn = view.querySelector('#oficios-importar-btn');
+    const impInput = view.querySelector('#oficios-importar-input');
+    if (impBtn && impInput) {
+      impBtn.addEventListener('click', () => impInput.click());
+      impInput.addEventListener('change', async () => {
+        const file = impInput.files && impInput.files[0];
+        if (!file) return;
+        try {
+          const payload = JSON.parse(await file.text());
+          const saved = guardarOficioImportado(payload);
+          toast('Oficio importado: revísalo y guárdalo a tu gusto.');
+          location.hash = '#oficios/editar/' + encodeURIComponent(saved.id);
+        } catch (e) {
+          toast('Ese archivo no es un oficio válido.');
+        }
+      });
+    }
   }
 
   function oficioEditView(rawId) {
@@ -1166,7 +1271,15 @@
     <div class="btn-row">
       <button type="button" class="btn primary" id="oficio-guardar">Guardar oficio</button>
       ${!isNew ? '<button type="button" class="btn" id="oficio-borrar">Eliminar</button>' : ''}
-    </div>`;
+    </div>
+    ${!isNew ? `<div class="section-title">Compartir con otros</div>
+    <div class="card">
+      <p class="comm-sub">Para llevarlo a otro dispositivo, o para dárselo a otra persona o comunidad: como archivo, o como enlace que ellos abren y confirman antes de guardarlo.</p>
+      <div class="btn-row" style="margin-bottom:0">
+        <button type="button" class="btn" id="oficio-exportar">Descargar como archivo</button>
+        <button type="button" class="btn" id="oficio-compartir">Copiar enlace para compartir</button>
+      </div>
+    </div>` : ''}`;
 
     view.innerHTML = html;
     renderPiezas();
@@ -1242,6 +1355,11 @@
       toast('Oficio guardado.');
       location.hash = '#oficios';
     });
+
+    const btnExportar = view.querySelector('#oficio-exportar');
+    if (btnExportar) btnExportar.addEventListener('click', () => exportarOficioArchivo(office));
+    const btnCompartir = view.querySelector('#oficio-compartir');
+    if (btnCompartir) btnCompartir.addEventListener('click', () => copiarEnlaceOficio(office));
 
     const btnBorrar = view.querySelector('#oficio-borrar');
     if (btnBorrar) btnBorrar.addEventListener('click', () => {
