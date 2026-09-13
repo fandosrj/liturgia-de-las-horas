@@ -99,7 +99,9 @@
     if (h === 'ajustes') return settingsView();
     if (h === 'acerca') return acercaView();
     if (h === 'oficios') return oficiosView();
-    if (h.startsWith('oficios/')) return oficioEditView(h.split('oficios/')[1]);
+    if (h === 'oficios/nuevo') return oficioEditView('nuevo');
+    if (h.startsWith('oficios/rezar/')) return oficioRezarView(h.split('oficios/rezar/')[1]);
+    if (h.startsWith('oficios/editar/')) return oficioEditView(h.split('oficios/editar/')[1]);
     return homeView();
   }
 
@@ -852,10 +854,8 @@
       const data = await Liturgy.load(currentDate, hourId);
       const opts = Liturgy.optionsFor(data, hourId);
       if (!opts.length) { view.innerHTML = '<div class="note-box">No hay datos para esta hora en esta fecha.</div>'; showLoading(false); return; }
-      let info = null;
-      try { info = await Liturgy.ensure().getLiturgyInformation(currentDate); } catch (e) { /* sin festividad: se ignora el vinculo por festividad */ }
 
-      buildHourHtml(hourId, hx, opts, 0, info);
+      buildHourHtml(hourId, hx, opts, 0);
       if (!GH) Community.joinHour(hourId);
     } catch (e) {
       view.innerHTML = errBox(e);
@@ -863,43 +863,79 @@
     showLoading(false);
   }
 
-  /* -------- Oficios personalizados: piezas construidas por el usuario -------- */
-  function customPieceHtml(p) {
-    const texto = p.texto || '';
-    if (p.tipo === 'preces') return `<div class="rubric">Preces</div><div class="preces"><p class="peticion">${Liturgy.italic(texto).replace(/\n/g, '<br>')}</p></div>`;
-    if (p.tipo === 'oracion') return `<div class="rubric">Oración</div>` + Liturgy.text(texto);
-    if (p.tipo === 'lectura') return `<div class="rubric">${Liturgy.esc(p.ref || 'Lectura breve')}</div>` + Liturgy.text(texto);
-    if (p.tipo === 'responsorio') return `<div class="responsorios"><p>${Liturgy.italic(texto).replace(/\n/g, '<br>')}</p></div>`;
-    return Liturgy.text(texto);
+  /* -------- Oficios personalizados: piezas construidas por el usuario --------
+     Programa aparte y autónomo: nunca sustituye el rezo oficial diario, vive
+     en su propia sección con su propia pantalla de rezo. Cada pieza es un
+     bloque independiente (con su propio título) para que favoritos, notas,
+     audio propio y lectura en voz alta funcionen igual en cada una. */
+  function pieceBaseLabel(p) {
+    if (p.ref) return p.ref;
+    const meta = CustomOffice.PIEZA_TIPOS.find((t) => t.id === p.tipo);
+    return meta ? meta.label : 'Texto';
+  }
+
+  // Favoritos, notas y audio se guardan por el TÍTULO visible de cada
+  // pieza: si dos piezas comparten título (dos "Antífona", por ejemplo,
+  // para repetirla antes y después del salmo) compartirían sin querer el
+  // mismo audio o la misma nota. Se numeran solo cuando hay de verdad un
+  // duplicado, para no ensuciar "Himno" cuando es el único.
+  function pieceLabels(piezas) {
+    const base = piezas.map(pieceBaseLabel);
+    const total = {};
+    base.forEach((l) => { total[l] = (total[l] || 0) + 1; });
+    const seen = {};
+    return base.map((l) => {
+      if (total[l] <= 1) return l;
+      seen[l] = (seen[l] || 0) + 1;
+      return l + ' ' + seen[l];
+    });
   }
 
   function customOfficeHtml(office) {
     let h = '';
     const piezas = office.piezas || [];
-    for (let i = 0; i < piezas.length; i++) {
-      const p = piezas[i];
-      if (p.tipo === 'salmo') {
-        h += `<div class="psalm-block"><div class="psalm-ref">${Liturgy.esc(p.ref || 'Salmo')}</div>${Liturgy.text(p.texto || '')}</div>`;
-      } else if (p.tipo === 'antifona' && piezas[i + 1] && piezas[i + 1].tipo === 'salmo') {
-        const next = piezas[i + 1];
-        h += `<div class="psalm-block"><div class="psalm-ref">${Liturgy.esc(next.ref || 'Salmo')}</div><div class="ant">${Liturgy.italic(p.texto || '').replace(/\n/g, '<br>')}</div>${Liturgy.text(next.texto || '')}</div>`;
-        i++;
-      } else if (p.tipo === 'antifona') {
-        h += `<div class="ant">${Liturgy.italic(p.texto || '').replace(/\n/g, '<br>')}</div>`;
+    const labels = pieceLabels(piezas);
+    piezas.forEach((p, i) => {
+      const texto = p.texto || '';
+      let inner;
+      if (p.tipo === 'antifona' || p.tipo === 'antifona_mariana') {
+        inner = `<div class="ant">${Liturgy.italic(texto).replace(/\n/g, '<br>')}</div>`;
+      } else if (p.tipo === 'preces') {
+        inner = `<div class="preces"><p class="peticion">${Liturgy.italic(texto).replace(/\n/g, '<br>')}</p></div>`;
+      } else if (p.tipo === 'responsorio') {
+        inner = `<div class="responsorios"><p>${Liturgy.italic(texto).replace(/\n/g, '<br>')}</p></div>`;
       } else {
-        h += customPieceHtml(p);
+        inner = Liturgy.text(texto);
       }
-    }
+      h += `<div class="psalm-block"><div class="psalm-ref">${Liturgy.esc(labels[i])}</div>${inner}</div>`;
+    });
     return '<article class="prayer">' + h + '</article>';
   }
 
-  function oficiosView() {
+  async function oficiosView() {
     const offices = (window.CustomOffice ? CustomOffice.list() : []);
     let html = `<div class="section-title">Mis oficios personalizados</div>
       <div class="card">
-        <p class="text">Construye una hora completa desde cero -antífonas, salmos, lecturas, preces, oración- y, si quieres, haz que sustituya a una hora oficial: siempre, en una fecha fija de cada año, o cuando la festividad del día coincida con lo que elijas.</p>
+        <p class="text">Un programa aparte, independiente del rezo diario oficial: construye una hora completa desde cero -antífonas, salmos, lecturas, preces, oración- con tus propios textos y tu propia voz grabada. Si quieres, vincúlala a un momento del calendario para que te avise "hoy toca" -nunca sustituye lo que ya rezas cada día-.</p>
         <div class="btn-row" style="margin-bottom:0"><a class="btn primary" href="#oficios/nuevo">&#10011; Crear oficio nuevo</a></div>
       </div>`;
+
+    try {
+      if (offices.length && window.CustomOffice) {
+        const info = await Liturgy.ensure().getLiturgyInformation(currentDate);
+        const hoy = CustomOffice.forAnyToday(Liturgy.HOURS.map((h) => h.id), currentDate, info);
+        if (hoy.length) {
+          html += `<div class="card" style="border-left:4px solid var(--accent)">
+            <div class="rubric">Hoy te toca</div>
+            ${hoy.map(({ hourId, office }) => {
+              const hx = Liturgy.HOURS.find((h) => h.id === hourId);
+              return `<div class="btn-row"><a class="btn primary" href="#oficios/rezar/${encodeURIComponent(office.id)}">${Liturgy.esc(office.nombre)}</a><span class="comm-sub">para ${hx ? hx.name : hourId}</span></div>`;
+            }).join('')}
+          </div>`;
+        }
+      }
+    } catch (e) { /* sin festividad de hoy: se omite el aviso */ }
+
     if (!offices.length) {
       html += '<div class="note-box">Todavía no has creado ningún oficio personalizado.</div>';
     } else {
@@ -909,14 +945,18 @@
         if (v && v.activo) {
           const hx = Liturgy.HOURS.find((h) => h.id === v.horaId);
           const nombreHora = hx ? hx.name : v.horaId;
-          if (v.modo === 'siempre') vinculoTxt = `Sustituye siempre a ${nombreHora}`;
-          else if (v.modo === 'fecha') vinculoTxt = `Sustituye a ${nombreHora} el ${String(v.dia).padStart(2, '0')}/${String(v.mes).padStart(2, '0')}`;
-          else if (v.modo === 'festividad') vinculoTxt = `Sustituye a ${nombreHora} cuando la festividad contenga «${v.patron}»`;
+          if (v.modo === 'siempre') vinculoTxt = `Aviso para ${nombreHora}, siempre`;
+          else if (v.modo === 'fecha') vinculoTxt = `Aviso para ${nombreHora} el ${String(v.dia).padStart(2, '0')}/${String(v.mes).padStart(2, '0')}`;
+          else if (v.modo === 'festividad') vinculoTxt = `Aviso para ${nombreHora} cuando la festividad contenga «${v.patron}»`;
         }
-        html += `<a class="hour-card" href="#oficios/${encodeURIComponent(o.id)}">
+        html += `<div class="hour-card">
           <div class="hour-card-head"><span class="hour-name">${Liturgy.esc(o.nombre)}</span></div>
           <div class="hour-card-body"><div class="hour-ant">${Liturgy.esc(vinculoTxt)} · ${(o.piezas || []).length} piezas</div></div>
-        </a>`;
+          <div class="btn-row" style="margin-bottom:0;margin-top:8px">
+            <a class="btn primary" href="#oficios/rezar/${encodeURIComponent(o.id)}">Rezar</a>
+            <a class="btn" href="#oficios/editar/${encodeURIComponent(o.id)}">Editar</a>
+          </div>
+        </div>`;
       }
     }
     view.innerHTML = html;
@@ -934,7 +974,8 @@
 
     function piezaRow(p, i, total) {
       const tipoOpts = CustomOffice.PIEZA_TIPOS.map((t) => `<option value="${t.id}" ${p.tipo === t.id ? 'selected' : ''}>${t.label}</option>`).join('');
-      const needsRef = p.tipo === 'salmo' || p.tipo === 'lectura';
+      const tipoMeta = CustomOffice.PIEZA_TIPOS.find((t) => t.id === p.tipo);
+      const needsRef = !!(tipoMeta && tipoMeta.needsRef);
       return `<div class="card oficio-pieza" data-i="${i}">
         <div class="btn-row" style="margin-bottom:8px">
           <select class="date-val pieza-tipo">${tipoOpts}</select>
@@ -984,14 +1025,26 @@
         <input type="text" id="oficio-nombre" class="input-line" value="${Liturgy.esc(office.nombre)}" placeholder="Ej. Vísperas cistercienses">
       </label>
     </div>
+    ${isNew ? `<div class="card">
+      <div class="rubric">Empezar desde una plantilla (opcional)</div>
+      <p class="comm-sub">Elige para qué hora es y se rellenan los huecos vacíos en el orden real de esa hora: tú solo escribes el contenido. O deja "Ninguna" y empieza en blanco.</p>
+      <div class="btn-row">
+        <select id="oficio-plantilla" class="date-val">
+          <option value="">Ninguna, empezar en blanco</option>
+          ${Liturgy.HOURS.map((h) => `<option value="${h.id}">${h.name}</option>`).join('')}
+        </select>
+        <button type="button" class="btn" id="oficio-cargar-plantilla">Cargar plantilla</button>
+      </div>
+    </div>` : ''}
     <div class="section-title">Piezas del oficio</div>
     <div id="oficio-piezas"></div>
     <div class="btn-row"><button type="button" class="btn" id="oficio-add-pieza">&#10011; Añadir pieza</button></div>
-    <div class="section-title">Vincular al calendario</div>
+    <div class="section-title">Cuándo rezarlo</div>
     <div class="card">
-      <label class="pick"><input type="checkbox" id="v-activo" ${vinculo.activo ? 'checked' : ''}> Sustituir a una hora oficial</label>
+      <label class="pick"><input type="checkbox" id="v-activo" ${vinculo.activo ? 'checked' : ''}> Avisarme "hoy toca este oficio"</label>
+      <p class="comm-sub" style="margin:6px 0 0">Solo es un aviso dentro de Mis oficios personalizados: nunca sustituye el rezo oficial de esa hora.</p>
       <div id="vinculo-detalle" style="${vinculo.activo ? '' : 'display:none'};margin-top:10px">
-        <label class="pick" style="display:block;margin-bottom:8px">Hora que sustituye
+        <label class="pick" style="display:block;margin-bottom:8px">Para qué hora es
           <select id="v-hora" class="date-val">${horaOpts}</select>
         </label>
         <div class="seg" style="margin-bottom:8px">
@@ -1023,6 +1076,16 @@
       renderPiezas();
     });
 
+    const btnPlantilla = view.querySelector('#oficio-cargar-plantilla');
+    if (btnPlantilla) btnPlantilla.addEventListener('click', () => {
+      const hourId = view.querySelector('#oficio-plantilla').value;
+      if (!hourId) { toast('Elige una hora para cargar su plantilla.'); return; }
+      if (piezas.length && !confirm('Esto añade los huecos de esa hora al final de las piezas que ya tienes. ¿Seguir?')) return;
+      piezas = piezas.concat(CustomOffice.templateFor(hourId));
+      renderPiezas();
+      toast('Plantilla cargada: rellena el contenido de cada pieza.');
+    });
+
     const vActivo = view.querySelector('#v-activo');
     view.querySelector('#vinculo-detalle') && vActivo.addEventListener('change', () => {
       view.querySelector('#vinculo-detalle').style.display = vActivo.checked ? '' : 'none';
@@ -1044,7 +1107,7 @@
         id: isNew ? undefined : office.id,
         creado: isNew ? undefined : office.creado,
         nombre,
-        piezas: piezas.filter((p) => (p.texto || '').trim()),
+        piezas: piezas.slice(),
         vinculo: {
           activo: view.querySelector('#v-activo').checked,
           horaId: view.querySelector('#v-hora').value,
@@ -1067,10 +1130,49 @@
     });
   }
 
-  function buildHourHtml(hourId, hx, opts, idx, info) {
+  /* Pantalla propia para rezar un oficio personalizado: independiente del
+     rezo oficial diario, no comparte ruta ni sustituye nada de #hora/. */
+  function oficioRezarView(rawId) {
+    const id = decodeURIComponent(String(rawId || ''));
+    const office = CustomOffice.get(id);
+    if (!office) { view.innerHTML = errBox(new Error('No se encontró ese oficio.')); return; }
+    const doneId = 'oficio_' + office.id;
+    const done = Store.isPrayed(currentDate, doneId);
+    let html = `<div class="prayer-toolbar">
+      <button class="icon-btn" onclick="location.hash='#oficios'" aria-label="Volver">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2z"/></svg>
+      </button>
+      <div class="tt"><h1>${Liturgy.esc(office.nombre)}</h1><div class="sub">${fmtDate(currentDate)} · oficio personalizado</div></div>
+      <button class="icon-btn" onclick="location.hash='#oficios/editar/${encodeURIComponent(office.id)}'" aria-label="Editar este oficio">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      </button>
+    </div>`;
+    if (!office.piezas || !office.piezas.length) {
+      html += '<div class="note-box">Este oficio todavía no tiene piezas. <a href="#oficios/editar/' + encodeURIComponent(office.id) + '">Añádelas aquí</a>.</div>';
+    } else {
+      html += customOfficeHtml(office);
+    }
+    html += `<div class="done-bar">
+      <button class="btn ${done ? 'marked' : 'primary'}" id="btn-done-of">${done ? '&#10003; Rezado' : 'Marcar como rezado'}</button>
+    </div>`;
+    view.innerHTML = html;
+    asAppend();
+    attachFavStars();
+    enhancePrayerText();
+    attachAudioNotes();
+    const btn = view.querySelector('#btn-done-of');
+    if (btn) btn.addEventListener('click', () => {
+      const ns = Store.togglePrayed(currentDate, doneId);
+      btn.classList.toggle('marked', ns);
+      btn.classList.toggle('primary', !ns);
+      btn.innerHTML = ns ? '&#10003; Rezado' : 'Marcar como rezado';
+      if (ns) toast('Oficio completado. <b>Oremus.</b>');
+    });
+  }
+
+  function buildHourHtml(hourId, hx, opts, idx) {
     const opt = opts[Math.min(idx, opts.length - 1)];
     const done = Store.isPrayed(currentDate, hourId);
-    const custom = (window.CustomOffice ? CustomOffice.forHour(hourId, currentDate, info || {}) : null);
     const optsHtml = opts.length > 1
       ? `<div class="btn-row option-bar-2">
            <span>Opción:</span>
@@ -1093,12 +1195,7 @@
 
     html += optsHtml;
 
-    if (custom) {
-      html += `<div class="note-box custom-office-banner">Rezando tu oficio personalizado: <b>${Liturgy.esc(custom.nombre)}</b> · <a href="#oficios/${encodeURIComponent(custom.id)}">gestionar</a></div>`;
-      html += customOfficeHtml(custom);
-    } else {
-      html += Liturgy.render(hourId, opt, null);
-    }
+    html += Liturgy.render(hourId, opt, null);
 
     html += `<div class="done-bar">
       <button class="btn ${done ? 'marked' : 'primary'}" id="btn-done">${done ? '&#10003; Hora rezada' : 'Marcar como rezada'}</button>
@@ -1113,7 +1210,7 @@
     attachFavStars();
     enhancePrayerText();
     attachAudioNotes();
-    if (!custom) attachCustomText();
+    attachCustomText();
     if (!GH) loadIntentions(intoSlot('#intentions-slot'));
     if (!GH) attachNowOthers();
 
@@ -1133,7 +1230,7 @@
     }
 
     document.querySelectorAll('.option-bar-2 [data-opt]').forEach((b) => {
-      b.addEventListener('click', () => buildHourHtml(hourId, hx, opts, parseInt(b.dataset.opt, 10), info));
+      b.addEventListener('click', () => buildHourHtml(hourId, hx, opts, parseInt(b.dataset.opt, 10)));
     });
   }
 

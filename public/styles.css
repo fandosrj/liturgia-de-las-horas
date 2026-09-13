@@ -770,7 +770,6 @@ body {
 .prayer .rubric + .text.custom-edited { border-left: 2px solid var(--accent); padding-left: 10px; }
 
 /* --------------- Oficios personalizados (Niveles 2 y 3) --------------- */
-.custom-office-banner { font-family: var(--sans); font-size: 0.85rem; }
 .input-line {
   width: 100%; margin-top: 4px; padding: 8px; box-sizing: border-box;
   border-radius: 8px; border: 1px solid var(--line);
